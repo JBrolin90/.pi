@@ -21,6 +21,7 @@
   "defaultThinkingLevel": "minimal",
   "hideThinkingBlock": false,
   "packages": [
-    "npm:pi-json-tools"
+    "npm:pi-json-tools",
+    "npm:@juicesharp/rpiv-ask-user-question"
   ]
 }

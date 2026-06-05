@@ -5,3 +5,4 @@
 
 ## Process
 - "Look" means investigate only: do not start fixing until Joachim asks
+- When refactoring something, also refactor the corresoponding test case(s)
