@@ -1,0 +1,24 @@
+{
+  "providers": {
+    "ollama": {
+      "baseUrl": "http://localhost:11434/v1",
+      "api": "openai-completions",
+      "apiKey": "ollama",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false
+      },
+      "models": [
+        { "id": "llama3.1:8b" },
+        { "id": "llama3.2:latest" },
+        { "id": "gemma4:e4b" },
+        { "id": "qwen2.5-coder:3b" },
+        { "id": "qwen2.5-coder:7b" },
+        { "id": "qwen2.5-coder:7b-instruct-q8_0" },
+        { "id": "qwen2.5-coder:14b" },
+        { "id": "deepseek-coder:6.7b" }
+      ]
+    }
+  }
+}
+
