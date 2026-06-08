@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.78.0",
+  "lastChangelogVersion": "0.78.1",
   "defaultProvider": "minimax",
   "theme": "dark",
   "defaultModel": "MiniMax-M2.7",
@@ -22,6 +22,7 @@
   "hideThinkingBlock": false,
   "packages": [
     "npm:pi-json-tools",
-    "npm:@juicesharp/rpiv-ask-user-question"
+    "npm:@juicesharp/rpiv-ask-user-question",
+    "npm:pi-web-access"
   ]
 }
