@@ -1,27 +1,19 @@
 {
-  "lastChangelogVersion": "0.78.0",
-  "defaultProvider": "minimax",
+  "lastChangelogVersion": "0.79.8",
+  "defaultProvider": "openrouter",
   "theme": "dark",
-  "defaultModel": "MiniMax-M2.7",
+  "defaultModel": "minimax/minimax-m3",
   "enabledModels": [
-    "ollama/deepseek-coder:6.7b",
     "ollama/qwen2.5-coder:7b",
-    "google/gemini-3.1-flash-lite-preview",
-    "minimax/MiniMax-M2.7",
-    "minimax/MiniMax-M2.7-highspeed",
-    "github-copilot/gpt-4.1",
-    "github-copilot/gpt-5-mini",
-    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-    "openrouter/meta-llama/llama-3.3-70b-instruct:free",
-    "openrouter/qwen/qwen3-next-80b-a3b-instruct:free",
-    "openrouter/google/gemma-4-26b-a4b-it:free",
-    "ollama/llama3.1:8b",
-    "ollama/llama3.2:latest"
+    "openrouter/minimax/minimax-m3",
+    "ollama/gemma4:26b",
+    "ollama/gemma4:e4b"
   ],
   "defaultThinkingLevel": "minimal",
   "hideThinkingBlock": false,
   "packages": [
     "npm:pi-json-tools",
-    "npm:@juicesharp/rpiv-ask-user-question"
+    "npm:@juicesharp/rpiv-ask-user-question",
+    "npm:pi-web-access"
   ]
 }
