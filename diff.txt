@@ -1,0 +1,426 @@
+diff --git a/agent/extensions/persona-loader.ts b/agent/extensions/persona-loader.ts
+index 538de71..7be0096 100644
+--- a/agent/extensions/persona-loader.ts
++++ b/agent/extensions/persona-loader.ts
+@@ -3,98 +3,122 @@ import * as fs from "node:fs";
+ import * as os from "node:os";
+ import * as path from "node:path";
+ 
+-function getMessageText(message: any): string {
+-  if (!message) return "";
+-  if (typeof message.content === "string") {
+-    return message.content;
+-  }
+-  if (Array.isArray(message.content)) {
+-    return message.content
+-      .map((block: any) => (block.type === "text" ? block.text : ""))
+-      .join("\n");
+-  }
+-  return "";
+-}
++// Module-level state - persists across events
++let pendingPersonaPrompt = "";
+ 
+-export default function (pi: ExtensionAPI) {
+-  pi.on("before_agent_start", async (event, ctx) => {
+-    let activePersona: string | null = null;
+-    try {
+-      const entries = ctx.sessionManager.getEntries();
+-      // Look from the end of the session entries backwards to find the last become-persona command
+-      for (let i = entries.length - 1; i >= 0; i--) {
+-        const entry = entries[i];
+-        if (entry.type === "message" && entry.message && entry.message.role === "user") {
+-          const text = getMessageText(entry.message);
+-          if (text.includes("become-persona")) {
+-            // Check for skill-wrapped command: </skill>\n\nPersonaName
+-            const skillEnd = text.indexOf("</skill>");
+-            if (skillEnd !== -1) {
+-              const afterSkill = text.slice(skillEnd + "</skill>".length).trim();
+-              const lines = afterSkill.split("\n");
+-              if (lines.length > 0) {
+-                activePersona = lines[0].trim().replace(/['"`]/g, ""); // strip quotes
+-              }
+-            } else {
+-              // Check for plain slash command: /become-persona PersonaName
+-              const match = text.match(/(?:^|\s)\/?become-persona\s+(\w+)/i);
+-              if (match) {
+-                activePersona = match[1].trim();
+-              }
+-            }
+-            if (activePersona) {
+-              break;
+-            }
+-          }
+-        }
+-      }
+-    } catch (err) {
+-      // Fallback: don't crash the agent start if we fail to read session entries
++function loadPersonaContent(personaName: string): string {
++  let extraPrompt = "";
++  
++  try {
++    // 1. Load common guidelines
++    const commonPath = path.join(os.homedir(), ".pi", "agent", "personas", "common.md");
++    if (fs.existsSync(commonPath)) {
++      const commonContent = fs.readFileSync(commonPath, "utf-8");
++      extraPrompt += `\n\n# Shared Persona Guidelines (common.md)\n`;
++      extraPrompt += `${commonContent.trim()}\n`;
+     }
+ 
+-    if (!activePersona) return;
+-
+-    let extraPrompt = "";
+-    try {
+-      // 1. Load common guidelines
+-      const commonPath = path.join(os.homedir(), ".pi", "agent", "personas", "common.md");
+-      if (fs.existsSync(commonPath)) {
+-        const commonContent = fs.readFileSync(commonPath, "utf-8");
+-        extraPrompt += `\n\n# Shared Persona Guidelines (common.md)\n`;
+-        extraPrompt += `${commonContent.trim()}\n`;
+-      }
++    // 2. Load persona profile
++    const personaPath = path.join(os.homedir(), ".pi", "agent", "personas", personaName, "persona.md");
++    if (fs.existsSync(personaPath)) {
++      const personaContent = fs.readFileSync(personaPath, "utf-8");
++      extraPrompt += `\n\n# Persona Profile (${personaName})\n`;
++      extraPrompt += `${personaContent.trim()}\n`;
++    } else {
++      console.warn(`[persona-loader] persona.md not found for "${personaName}"`);
++      return "";
++    }
+ 
+-      // 2. Load persona profile
+-      const personaPath = path.join(os.homedir(), ".pi", "agent", "personas", activePersona, "persona.md");
+-      if (fs.existsSync(personaPath)) {
+-        const personaContent = fs.readFileSync(personaPath, "utf-8");
+-        extraPrompt += `\n\n# Persona Profile (${activePersona})\n`;
+-        extraPrompt += `${personaContent.trim()}\n`;
+-      }
++    // 3. Load persona memory
++    const memoryPath = path.join(os.homedir(), ".pi", "agent", "personas", personaName, "memory.md");
++    if (fs.existsSync(memoryPath)) {
++      const memoryContent = fs.readFileSync(memoryPath, "utf-8");
++      extraPrompt += `\n\n# Persona Memory (memory.md)\n`;
++      extraPrompt += `${memoryContent.trim()}\n`;
++    }
+ 
+-      // 3. Load persona memory
+-      const memoryPath = path.join(os.homedir(), ".pi", "agent", "personas", activePersona, "memory.md");
+-      if (fs.existsSync(memoryPath)) {
+-        const memoryContent = fs.readFileSync(memoryPath, "utf-8");
+-        extraPrompt += `\n\n# Persona Memory (memory.md)\n`;
+-        extraPrompt += `${memoryContent.trim()}\n`;
+-      }
++    // Explicitly guide the agent about memory file location and guidelines
++    const resolvedPersonaDir = path.join(os.homedir(), ".pi", "agent", "personas", personaName);
++    extraPrompt += `\n\n# Memory Guidelines\n`;
++    extraPrompt += `- Your active persona path is: ${resolvedPersonaDir}\n`;
++    extraPrompt += `- Your memory file is located at: ${path.join(resolvedPersonaDir, "memory.md")}\n`;
++    extraPrompt += `- **CRITICAL**: If the user explicitly asks you to remember something, corrects you, or you learn something new, you MUST proactively update your memory file using your file editing tools.\n`;
+ 
+-      // Explicitly guide the agent about memory file location and guidelines
+-      const resolvedPersonaDir = path.join(os.homedir(), ".pi", "agent", "personas", activePersona);
+-      extraPrompt += `\n\n# Memory Guidelines\n`;
+-      extraPrompt += `- Your active persona path is: ${resolvedPersonaDir}\n`;
+-      extraPrompt += `- Your memory file is located at: ${path.join(resolvedPersonaDir, "memory.md")}\n`;
+-      extraPrompt += `- **CRITICAL**: If the user explicitly asks you to remember something, corrects you, or you learn something new, you MUST proactively update your memory file using your file editing tools.\n`;
++  } catch (err) {
++    console.error("[persona-loader] failed to load persona files:", err);
++    return "";
++  }
++  
++  return extraPrompt;
++}
+ 
+-    } catch (err) {
+-      // Fallback: don't crash
+-    }
++function listPersonas(): string[] {
++  const personasDir = path.join(os.homedir(), ".pi", "agent", "personas");
++  try {
++    const entries = fs.readdirSync(personasDir, { withFileTypes: true });
++    return entries
++      .filter(e => e.isDirectory())
++      .map(e => e.name);
++  } catch {
++    return [];
++  }
++}
+ 
+-    if (extraPrompt) {
+-      return {
+-        systemPrompt: event.systemPrompt + extraPrompt,
+-      };
++export default function (pi: ExtensionAPI) {
++  
++  // Register /become-persona command
++  pi.registerCommand("become-persona", {
++    description: "Switch to a persona profile",
++    getArgumentCompletions: (prefix) => {
++      const personas = listPersonas();
++      const filtered = personas.filter(p => p.toLowerCase().startsWith(prefix.toLowerCase()));
++      return filtered.length > 0 
++        ? filtered.map(p => ({ value: p, label: p }))
++        : null;
++    },
++    handler: async (args, ctx) => {
++      const personaName = args.trim();
++      
++      if (!personaName) {
++        const personas = listPersonas();
++        if (personas.length === 0) {
++          ctx.ui.notify("No personas found", "warning");
++          return;
++        }
++        ctx.ui.notify(`Available personas: ${personas.join(", ")}`, "info");
++        return;
++      }
++      
++      // Remove quotes if present
++      const cleanName = personaName.replace(/['"`]/g, "");
++      
++      // Load persona content
++      const extraPrompt = loadPersonaContent(cleanName);
++      if (!extraPrompt) {
++        ctx.ui.notify(`Persona "${cleanName}" not found`, "error");
++        return;
++      }
++      
++      // Store for before_agent_start to pick up
++      pendingPersonaPrompt = extraPrompt;
++      
++      ctx.ui.notify(`Switched to persona: ${cleanName}`, "info");
++    },
++  });
++  
++  // Apply persona prompt before agent starts
++  pi.on("before_agent_start", async (event, _ctx) => {
++    if (!pendingPersonaPrompt) {
++      return;
+     }
++    
++    return {
++      systemPrompt: event.systemPrompt + pendingPersonaPrompt,
++    };
+   });
+-}
++  
++  // Clear pending prompt after agent ends
++  pi.on("agent_end", async (_event, _ctx) => {
++    pendingPersonaPrompt = "";
++  });
++}
+\ No newline at end of file
+diff --git a/agent/personas/Claudia/persona.md b/agent/personas/Claudia/persona.md
+new file mode 100644
+index 0000000..66ec58c
+--- /dev/null
++++ b/agent/personas/Claudia/persona.md
+@@ -0,0 +1,42 @@
++# System Design Specialist
++
++Your name is Claudia.
++You are a senior system architect and design specialist who helps engineers and teams think through complex system designs, architecture patterns, trade-offs, and scalability considerations.
++
++## Your Approach
++
++- **Architecture-First**: Focus on high-level design, system components, and their interactions rather than implementation details
++- **Trade-off Analysis**: Always present multiple approaches with their pros and cons, letting teams make informed decisions
++- **Scalability Mindset**: Consider load, performance, reliability, and growth from the start
++- **Communication**: Explain concepts clearly using diagrams, analogies, and structured breakdowns
++- **No Code**: You do not write code. You guide design discussions, review diagrams, and help structure solutions conceptually
++
++## What You Help With
++
++- System architecture design and component breakdown
++- Scalability and performance trade-off discussions
++- Database selection and data modeling approaches
++- Microservices vs. monolith decisions
++- Caching strategies, message queues, and async patterns
++- Load balancing, failover, and redundancy planning
++- API design principles (REST, GraphQL, gRPC considerations)
++- Security architecture and threat modeling
++- Cost and complexity estimation for different approaches
++
++## How You Work
++
++1. **Understand Requirements**: Ask clarifying questions about scale, constraints, and priorities
++2. **Explore Options**: Present 2-3 viable architectural approaches with trade-offs
++3. **Analyze Trade-offs**: Discuss complexity, performance, cost, and maintainability
++4. **Suggest Next Steps**: Recommend diagrams to draw, documents to create, or proofs of concept to validate
++
++## Tone & Style
++
++- Technical but accessible
++- Structured with clear sections (Assumptions, Design Options, Trade-offs, Recommendations)
++- Skeptical of over-engineering — prefer simpler solutions when they suffice
++- Ask about constraints (team size, timeline, existing infrastructure) before recommending
++
++## When Asked About Code
++
++If asked to write code, explain that your role is system design and you can describe what code should do conceptually, but you defer implementation details to the engineering team.
+\ No newline at end of file
+diff --git a/agent/personas/Sue/memory.md b/agent/personas/Sue/memory.md
+index ee7255b..fbe8703 100644
+--- a/agent/personas/Sue/memory.md
++++ b/agent/personas/Sue/memory.md
+@@ -5,4 +5,43 @@
+ 
+ ## Process
+ - "Look" means investigate only: do not start fixing until Joachim asks
+-- When refactoring something, also refactor the corresoponding test case(s)
+\ No newline at end of file
++- When refactoring something, also refactor the corresponding test case(s)
++- **TDD for Bug Fixes (CRITICAL)**: When a bug or error is found, FIRST create a unit test or integration test that reproduces the bug BEFORE changing any code. This ensures the bug doesn't regress later. Steps:
++  1. Write a test that fails due to the bug
++  2. Run the test to confirm it fails
++  3. Fix the bug
++  4. Run the test again to confirm it passes
++  5. Run full test suite to ensure no regressions
++
++## Project Tracking
++- Track all discussions and conclusions about the Harness project in PROJECT.md
++- Update PROJECT.md after each task AND after each commit/push
++- CRITICAL: Always update PROJECT.md proactively — do NOT wait for Joachim to remind you
++- Avoid duplication: add new things, remove what no longer applies
++- Read PROJECT.md right after adopting the Sue persona
++
++## Harness Project - Key Decisions (bugfix/tool-call-id branch)
++
++### Text Parsing vs Structured Tool Calls
++- **Text parsing MUST NOT be enabled for cloud models** (MiniMax, OpenAI, OpenRouter): They properly use structured tool_calls
++- **Text parsing SHOULD be enabled for small local models** (qwen, llama): These models don't properly use structured tool calling and output tool calls as text
++- This is controlled by provider attributes: `text_parse_json_codeblock` and `text_parse_json_raw`
++
++### Text-Based Tool Call Flow
++1. Model outputs JSON as text (not in structured tool_calls)
++2. `dispatch_with_text_parsing` in `tool_dispatch.py` finds and executes the tool
++3. Tool result is added to conversation
++4. Model may echo the JSON back in response text
++5. Repetition detector catches this and breaks the loop
++
++### Model Echoing JSON - Expected Behavior
++- After executing a text-based tool call, if model echoes the JSON back, the result is the JSON text, not the tool execution result
++- The repetition detector is working correctly - it breaks the loop
++- This is a **model behavior issue**, not a Harness bug
++
++### Key Files Modified (bugfix/tool-call-id branch)
++- `llm/tool_call_parser.py`: _parse_call() extracts 'id' field, _build_tool_call() accepts tool_id
++- `tool_dispatch.py`: dispatch() passes tc.id to _execute_call(), _execute_call() accepts tool_call_id
++- `llm/brain.py`: _handle_response renamed to _normalize_response
++- `tests/test_tool_dispatch.py`: test_tool_call_id_passed_through
++- `tests/test_tool_call_parser.py`: test_tool_call_with_id fixed
+\ No newline at end of file
+diff --git a/agent/settings.json b/agent/settings.json
+index 4e0a9f4..0bf1652 100644
+--- a/agent/settings.json
++++ b/agent/settings.json
+@@ -1,22 +1,13 @@
+ {
+-  "lastChangelogVersion": "0.78.1",
+-  "defaultProvider": "minimax",
++  "lastChangelogVersion": "0.79.1",
++  "defaultProvider": "openrouter",
+   "theme": "dark",
+-  "defaultModel": "MiniMax-M2.7",
++  "defaultModel": "minimax/minimax-m3",
+   "enabledModels": [
+-    "ollama/deepseek-coder:6.7b",
+     "ollama/qwen2.5-coder:7b",
+-    "google/gemini-3.1-flash-lite-preview",
+-    "minimax/MiniMax-M2.7",
+-    "minimax/MiniMax-M2.7-highspeed",
+-    "github-copilot/gpt-4.1",
+-    "github-copilot/gpt-5-mini",
+-    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+-    "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+-    "openrouter/qwen/qwen3-next-80b-a3b-instruct:free",
+-    "openrouter/google/gemma-4-26b-a4b-it:free",
+-    "ollama/llama3.1:8b",
+-    "ollama/llama3.2:latest"
++    "openrouter/minimax/minimax-m3",
++    "ollama/gemma4:26b",
++    "ollama/gemma4:e4b"
+   ],
+   "defaultThinkingLevel": "minimal",
+   "hideThinkingBlock": false,
+diff --git a/agent/skills/become-persona/SKILL.md b/agent/skills/become-persona/SKILL.md
+deleted file mode 100644
+index 7089be3..0000000
+--- a/agent/skills/become-persona/SKILL.md
++++ /dev/null
+@@ -1,42 +0,0 @@
+----
+-name: become-persona
+-description: Load a persona from ~/.pi/agent/personas/. Use /become-persona <name> to adopt that persona.
+----
+-
+-# Become Persona
+-
+-Loads and adopts a persona from a file. The persona affects how you communicate, reason, and respond.
+-
+-## Directory Structure
+-
+-```
+-~/.pi/agent/personas/
+-├── common.md           # Shared across all personas (automatically loaded)
+-├── <persona-name>/
+-│   ├── persona.md      # Main persona definition
+-│   ├── memory.md       # Persona-specific memory
+-│   └── *.md            # Any additional files (referenced with ./)
+-```
+-
+-## Usage
+-
+-```
+-/become-persona <persona-name>
+-```
+-
+-## Behavior
+-
+-**CRITICAL**: On your first turn when this command is run, DO NOT output any conversational text, greetings, or acknowledgments. You must IMMEDIATELY and SILENTLY call the file reading tools to ingest the persona files. Once files are ingested, you will then summarize and confirm readiness.
+-
+-1. **Resolve Persona Path**: Resolve the path to `~/.pi/agent/personas/<name>/`.
+-2. **Case-Sensitivity**: The lookup is case-sensitive. Match the directory name exactly (e.g., "Hazel", not "hazel").
+-3. **Ingest Shared Guidelines**: Read `~/.pi/agent/personas/common.md` (if it exists).
+-4. **Ingest Persona**: Read `persona.md` from the persona directory.
+-5. **Ingest Memory**: Read `memory.md` from the persona directory (if it exists).
+-6. **Path Resolution**: Resolve any relative paths inside the persona files from `~/.pi/agent/personas/<name>/`.
+-7. **Adopt Persona**: Follow all instructions in `persona.md` and adopt the described personality and style.
+-8. **Keep Track of Path**: Note the active persona path throughout the session. If you learn something new or are corrected, update that specific persona's `memory.md` (or other appropriate files) in accordance with the memory system guidelines in `common.md`.
+-9. **Acknowledge**: Summarize what persona you have assumed (without revealing full file contents unless asked) and confirm your readiness to assist.
+-
+-### Error Handling
+-If the specified persona directory or `persona.md` is not found, list the available directories under `~/.pi/agent/personas/` and ask the user to verify the name.
+diff --git a/agent/trust.json b/agent/trust.json
+new file mode 100644
+index 0000000..46b6d30
+--- /dev/null
++++ b/agent/trust.json
+@@ -0,0 +1,3 @@
++{
++  "/home/joachim": true
++}
+diff --git a/models.json b/models.json
+deleted file mode 100644
+index f375001..0000000
+--- a/models.json
++++ /dev/null
+@@ -1,17 +0,0 @@
+-{
+-  "providers": {
+-    "ollama": {
+-      "baseUrl": "http://localhost:11434/v1",
+-      "api": "openai-completions",
+-      "apiKey": "ollama",
+-      "models": [
+-        { "id": "llama3.2:latest" },
+-        { "id": "qwen2.5-coder:1.5b" },
+-        { "id": "qwen2.5-coder:3b" },
+-        { "id": "qwen2.5-coder:7b" },
+-        { "id": "deepseek-coder:6.7b" }
+-      ]
+-    }
+-  }
+-}
+-
