@@ -9,18 +9,73 @@
         "supportsReasoningEffort": false
       },
       "models": [
-        { "id": "llama3.1:8b" },
-        { "id": "llama3.2:latest" },
-        { "id": "gemma4:e4b" },
-        { "id": "gemma4:26b" },
-        { "id": "phi4:latest" },
-        { "id": "qwen2.5-coder:3b" },
-        { "id": "qwen2.5-coder:7b" },
-        { "id": "qwen2.5-coder:7b-instruct-q8_0" },
-        { "id": "qwen2.5-coder:14b" },
-        { "id": "deepseek-coder:6.7b" }
+        {
+          "id": "llama3.1:8b"
+        },
+        {
+          "id": "llama3.2:latest"
+        },
+        {
+          "id": "gemma4:e4b"
+        },
+        {
+          "id": "gemma4-12b-local:latest"
+        },
+        {
+          "id": "gemma4-26b-a4b-8k"
+        },
+        {
+          "id": "phi4:latest"
+        },
+        {
+          "id": "qwen2.5-coder:3b"
+        },
+        {
+          "id": "qwen2.5-coder:7b"
+        },
+        {
+          "id": "qwen2.5-coder:7b-instruct-q8_0"
+        },
+        {
+          "id": "qwen2.5-coder:14b"
+        },
+        {
+          "id": "deepseek-coder:6.7b"
+        }
+      ]
+    },
+    "llama.cpp": {
+      "baseUrl": "http://lmde:8080/v1",
+      "api": "openai-completions",
+      "apiKey": "none",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false
+      },
+      "models": [
+        {
+          "id": "gemma-4-12b-it-qat-q4_0",
+          "name": "Gemma 4 12B IT QAT Q4_0 (llama.cpp, CUDA, 25/48 GPU layers)",
+          "reasoning": false,
+          "input": [
+            "text"
+          ],
+          "contextWindow": 6144,
+          "maxTokens": 2048,
+          "compat": {
+            "thinkingFormat": "qwen-chat-template"
+          }
+        },
+        {
+          "id": "qwen-3.6-26b-A3B-text-q4_K_M",
+          "name": "qwen-3.6-26b-A3B-text-q4_K_M",
+          "reasoning": true,
+          "input": [
+            "text"
+          ],
+          "maxTokens": 62048
+        }
       ]
     }
   }
 }
-

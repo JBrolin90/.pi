@@ -1,13 +1,15 @@
 {
-  "lastChangelogVersion": "0.79.8",
-  "defaultProvider": "openrouter",
+  "lastChangelogVersion": "0.80.2",
+  "defaultProvider": "minimax",
   "theme": "dark",
-  "defaultModel": "minimax/minimax-m3",
+  "defaultModel": "MiniMax-M3",
   "enabledModels": [
-    "ollama/qwen2.5-coder:7b",
-    "openrouter/minimax/minimax-m3",
-    "ollama/gemma4:26b",
-    "ollama/gemma4:e4b"
+    "ollama/gemma4-26b-a4b-8k",
+    "llama.cpp/gemma-4-12b-it-qat-q4_0",
+    "ollama/qwen2.5-coder:14b",
+    "ollama/phi4:latest",
+    "minimax/MiniMax-M3",
+    "openrouter/minimax/minimax-m3"
   ],
   "defaultThinkingLevel": "minimal",
   "hideThinkingBlock": false,

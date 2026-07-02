@@ -53,6 +53,7 @@ Personas are stored in ~/.pi/agent/personas/ with each persona in its own direct
 - NavIntel: [Details to be added]
 ## Output -- formats, naming, delivery preferences
 ## Tools -- Which tools to use
+- **llama.cpp** (user-local, no sudo): built from source at `~/local/llama.cpp` (binaries), `~/local/llama.cpp/lib` (libs), `~/src/llama.cpp` (source). Built with `-DLLAMA_BUILD_SERVER=ON`. Symlinks in `~/bin/`. cmake at `~/local/cmake`. Models dir: `~/models/gguf`. Logs: `~/logs/llama.cpp`. PATH configured in `~/.bashrc`. Server PID: `~/logs/llama.cpp/server.pid`. Default server args: `-c 32768 -t 12 --host 127.0.0.1 --port 8080`. Pi `models.json` configures model with `contextWindow: 16384` (practical limit given CPU prompt-eval speed ~18 tok/s; server ctx stays at 32768 for headroom). 12B Q4 model RSS ~14 GB; ~190 KB/token KV cache.
 
 
 
