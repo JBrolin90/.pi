@@ -1,4 +1,9 @@
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  BeforeAgentStartEvent,
+  ExtensionAPI,
+  ExtensionCommandContext,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -57,8 +62,8 @@ function listPersonas(): string[] {
   try {
     const entries = fs.readdirSync(personasDir, { withFileTypes: true });
     return entries
-      .filter(e => e.isDirectory())
-      .map(e => e.name);
+      .filter((e: fs.Dirent) => e.isDirectory())
+      .map((e: fs.Dirent) => e.name);
   } catch {
     return [];
   }
@@ -69,14 +74,14 @@ export default function (pi: ExtensionAPI) {
   // Register /become-persona command
   pi.registerCommand("become-persona", {
     description: "Switch to a persona profile",
-    getArgumentCompletions: (prefix) => {
+    getArgumentCompletions: (prefix: string) => {
       const personas = listPersonas();
       const filtered = personas.filter(p => p.toLowerCase().startsWith(prefix.toLowerCase()));
       return filtered.length > 0 
         ? filtered.map(p => ({ value: p, label: p }))
         : null;
     },
-    handler: async (args, ctx) => {
+    handler: async (args: string, ctx: ExtensionCommandContext) => {
       const personaName = args.trim();
       
       if (!personaName) {
@@ -109,7 +114,7 @@ export default function (pi: ExtensionAPI) {
   // Apply persona prompt before every agent start. The prompt is staged in
   // module-level state by the command handler and intentionally NOT cleared
   // after the turn, so the persona remains active for the rest of the session.
-  pi.on("before_agent_start", async (event, _ctx) => {
+  pi.on("before_agent_start", async (event: BeforeAgentStartEvent, _ctx: ExtensionContext) => {
     if (!pendingPersonaPrompt) {
       return;
     }
