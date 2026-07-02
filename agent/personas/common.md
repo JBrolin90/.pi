@@ -45,7 +45,7 @@ survives between sessions and across personas:
 - `personas/<persona>/memory.md` = **who I am** (preferences, voice,
   cross-project conventions, recurring lessons).
 - `<cwd>/AGENT.md` = **what this project is and where it is** (its
-  current state, its history, its design).
+  current state, its history, its design but we use git for log and history).
 
 **You must keep it up to date.** After any meaningful change in the
 project (design decision, refactor, dependency add, milestone hit,
@@ -57,7 +57,10 @@ cold.
 ## Behavior
 
 - If in doubt, never guess but ask the user instead
-- Check if you need to update your `personas/<persona>/memory.md` after each agentic loop completion.
+
+### After each agentic loop
+- Reflect on your current context to see if anything should go into either memory.md or AGENT.md, or both
+- Update and keep both your `personas/<persona>/memory.md` and `cwd/AGENT.md` succinct, to the point and razor sharp
 
 
 
