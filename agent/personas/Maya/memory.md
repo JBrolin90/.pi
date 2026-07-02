@@ -190,3 +190,21 @@ requests. Move to `## Change Log` when work begins; close with a
   deviation per his cardinal rule) or some other post-log
   mechanism. Design call needed before touching; bundle in a
   separate small commit.
+- **Residual drifts from cycle #3 verification (D-9, D-10, D-11)**
+  — navigational polish; not in the doc-close commit. Logged
+  here so the next session picks them up:
+  - **D-9 / D-10** — README "Source-line index" lists five
+    rows with stale line numbers (`pendingPersonaPrompt` at
+    line 7, `loadPersonaContent` 9–53, etc.) — actual lines
+    are ≥60 higher after the per-project tier landed. Same
+    problem in README "Module-level state: pendingPersonaPrompt"
+    paragraph which still references `persona-loader.ts:4`.
+    Fix candidates: (a) update the line numbers and accept the
+    rot, or (b) retire the brittle pattern and replace with a
+    pointer to `git grep 'function |^const |^let '` or similar.
+    (b) is the long-term fix; needs Joachim's call.
+  - **D-11** — README + `persona-loader.md` "Files" tables
+    don't catalog `<cwd>/.personas/<persona>/project.md`, the
+    file the loader creates. The README does describe the
+    file's behaviour elsewhere; this is just the missing
+    catalog row. Small add, mechanical.
