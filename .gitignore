@@ -1,20 +1,2 @@
-# Ignore sensitive credential files
-agent/auth.json
-
-# Ignore npm dependencies
-**/node_modules/
-
-# Ignore compiled binaries
-agent/bin/
-
-# Ignore logs and history
-agent/*.log
-agent/run-history.jsonl
-*.log
-
-# Ignore dynamic agent sessions
-agent/sessions/
-
-# Ignore system/OS files
-.DS_Store
-Thumbs.db
+# Editor — VS Code workspace settings are local
+.vscode/
