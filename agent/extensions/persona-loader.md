@@ -22,8 +22,10 @@ persona's markdown bundle onto the next system prompt. Concretely it:
   `memory.md` and instructs it to update that file when remembered/corrected.
 - Registers tab-completion against the discovered persona names.
 - On `before_agent_start`, returns a `systemPrompt` composed of pi's
-  existing prompt plus the staged persona content.
-- On `agent_end`, clears the staged content so the next turn is clean.
+  existing prompt plus the staged persona content. The staged content is
+  never cleared during the session, so the persona is reapplied on every
+  subsequent turn until either another `/become-persona` swaps it or the
+  extension is reloaded.
 
 ### Non-responsibilities
 
@@ -63,7 +65,7 @@ export default function (pi: ExtensionAPI): void
 ```
 
 `pi` is pi's extension host. The default export is invoked once when pi
-loads the extension; it registers one command and two event hooks and returns
+loads the extension; it registers one command and one event hook and returns
 nothing. Everything else in the file is module-private.
 
 ### Non-obvious choices
@@ -89,9 +91,9 @@ The non-obvious decisions, in order of appearance.
    handler and `before_agent_start` are separated by an event boundary — the
    handler cannot return its value to the hook. Storing the staged prompt
    in module scope is the smallest possible glue between the two events,
-   and `agent_end` reliably resets it so the next turn is clean. The
-   alternative (passing state through `ctx` or an external store) would
-   exceed what the extensions API offers.
+   and letting it survive across turns gives the persona a session-long
+   lifetime without further work. The alternative (passing state through
+   `ctx` or an external store) would exceed what the extensions API offers.
 
    *Caveat:* module-level state does **not** survive a `jiti` reload. After
    `/reload` the prompt must be re-applied with another `/become-persona`
@@ -210,8 +212,9 @@ and follows the smoke-test recipe in `extensions/persona-loader/README.md`.
 6. Run `/become-persona` with no argument — the toast should list
    available personas.
 7. Run `/become-persona DoesNotExist` — should toast a red error.
-8. End the turn — the next prompt should not contain persona content
-   anymore (because `agent_end` cleared the staged prompt).
+8. End the turn — the next prompt should still contain persona content
+   (the prompt is session-sticky until `/become-persona` is invoked again
+   or the extension is reloaded).
 
 No scratch files are produced during verification; nothing to clean up.
 
@@ -275,7 +278,7 @@ No scratch files are produced during verification; nothing to clean up.
 - **Companion task brief:** none. The README.md above served as the
   up-front design and replaced a separate brief for this module.
 - **Extension host API:** `/usr/local/lib/node_modules/@earendil-works/pi-coding-agent/docs/extensions.md`
-  — lifecycle hooks (`before_agent_start`, `agent_end`), command
+  — lifecycle hook (`before_agent_start`), command
   registration (`registerCommand`, `getArgumentCompletions`), and the
   jiti loader's auto-discovery rules.
 - **Sibling extensions** in `extensions/`:
@@ -288,6 +291,8 @@ No scratch files are produced during verification; nothing to clean up.
   the loader actually inlines) and `personas/<name>/persona.md` plus
   `personas/<name>/memory.md` for any installed persona.
 - **Next module to read if extending this one:** start at the
-  `pendingPersonaPrompt` state and the `agent_end` reset — those two
-  are the seam where a future "persist persona across reloads" change
-  would land.
+  `pendingPersonaPrompt` state. That variable is the seam where a future
+  "persist persona across reloads" or "in-session persona clear" change
+  would land — both of which would also need a new extension entry point
+  (e.g. a `session_start` handler or a `/become-persona --clear` flag)
+  since the current API offers neither.

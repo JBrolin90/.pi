@@ -1,11 +1,11 @@
 # persona-loader
 
-A pi extension that lets the user switch the agent's role at runtime by loading a "persona" — a bundle of markdown files that get appended to the system prompt on the next agent turn.
+A pi extension that lets the user switch the agent's role at runtime by loading a "persona" — a bundle of markdown files that get appended to the system prompt on every agent turn for the remainder of the session.
 
 - **Extension file**: `~/.pi/agent/extensions/persona-loader.ts`
 - **Auto-discovered as**: a global extension (per `docs/extensions.md:114`)
 - **Command exposed**: `/become-persona [name]`
-- **Hooks used**: `before_agent_start`, `agent_end`
+- **Hooks used**: `before_agent_start`
 - **Persona storage**: `~/.pi/agent/personas/`
 
 ## What it does
@@ -75,19 +75,8 @@ pi.on("before_agent_start", async (event, _ctx) => {
 
 - Only fires if a persona is currently active. Returns `undefined` otherwise, leaving the system prompt untouched.
 - **Appends**, never replaces. The chained system prompt that pi has built (AGENTS.md, SYSTEM.md, tool snippets, prior extension handlers) is preserved.
+- **Session-sticky**: once `/become-persona <name>` is run, the chosen persona is appended on every subsequent `before_agent_start` for the rest of the session. Run `/become-persona <other-name>` to swap personas mid-session; reload the extension (or end the session) to clear.
 - Handlers run in extension load order (per `docs/extensions.md:764`); a later extension can still mutate the prompt after this one.
-
-### `agent_end`
-
-```ts
-pi.on("agent_end", async (_event, _ctx) => {
-  pendingPersonaPrompt = "";
-});
-```
-
-- Clears the active persona at the end of every agent turn.
-- **Consequence**: personas persist for exactly one agent turn. After the turn ends, you must run `/become-persona <name>` again to re-apply for the next turn. There is no "sticky" persona.
-- This is a deliberate one-shot design — see "Design notes" below.
 
 ## Persona file semantics
 
@@ -118,7 +107,7 @@ The variable lives at module scope (`persona-loader.ts:4`). Implications:
 - **Persists across events** within the same extension instance.
 - **Survives `/reload`?** Not documented; the file is re-imported via jiti, so the new instance gets a fresh empty string. Empirically, you should re-run `/become-persona` after `/reload` to be safe.
 - **Race condition**: if two `before_agent_start` events fire concurrently (uncommon but possible with parallel agents), they would read the same value. In practice pi processes turns sequentially, so this is theoretical.
-- **One-shot by design**: see the "Consequence" under `agent_end` above. The model is "persona is applied to the *next* turn only," not "persona is active for the session."
+- **Session-sticky by design**: the staged prompt is never cleared during the session. The model is "persona is active for the whole session once loaded" rather than "applied to the next turn only."
 
 ## Error handling
 
@@ -143,7 +132,7 @@ The only attack surface is the persona markdown files themselves, which become p
 ## Design notes
 
 - **Append, don't replace**: matching pi's `before_agent_start` chaining model. The persona inherits AGENTS.md, CLAUDE.md, SYSTEM.md, and any other extension's contributions.
-- **One-shot persona**: the `agent_end` clear is intentional. It keeps the model explicit ("I am this persona *for this turn*") rather than implicit ("I am always this persona"), which would make it easy to forget you're in a persona. The trade-off is friction: every turn of a long task needs a re-switch.
+- **Session-sticky persona**: there is no `agent_end` clear. Once a persona is loaded, it stays loaded until swapped, the session ends, or the extension is reloaded. The trade-off: persona context travels with the agent for the whole session, which is convenient for long tasks but means the user must explicitly switch personas (or reload) to leave a persona.
 - **Quoted argument stripping**: the `/become-persona "Foo Bar"` form is supported because users naturally quote multi-word names. The strip is naive — embedded quotes in persona names would break — but no persona name should contain a quote character in practice.
 - **`common.md` always read**: it is re-read on every `/become-persona`, so editing it is picked up on the next switch without reloading the extension.
 
@@ -151,7 +140,7 @@ The only attack surface is the persona markdown files themselves, which become p
 
 Things you might want to change for your own fork:
 
-- **Sticky persona**: remove the `agent_end` clear, or change it to a no-op.
+- **One-shot persona**: re-add an `agent_end` hook that sets `pendingPersonaPrompt = ""` if you want each turn to require a fresh `/become-persona` invocation.
 - **Project-scoped personas**: read `<cwd>/.pi/personas/` and merge with the global directory.
 - **Persona as a slash command argument**: allow `pi /become-persona Foo "be brief"` style extra instructions appended to the prompt.
 - **Hot-reload persona files**: re-read `persona.md`/`memory.md` on every `before_agent_start` rather than only on `/become-persona` (so edits to `memory.md` from inside the agent take effect on the *next* turn without a re-switch).
@@ -160,7 +149,7 @@ Things you might want to change for your own fork:
 
 ## Limitations and known sharp edges
 
-- **One turn per `/become-persona`**. If you forget, the next turn runs with the default prompt.
+- **No in-session clear**. Once a persona is active, the only ways to drop it are `/reload`, ending the session, or running `/become-persona <other-name>` to swap. There is no command to explicitly clear.
 - **No argument validation** beyond the quote strip. `../etc/passwd` would resolve to `~/.pi/agent/personas/../etc/passwd` only if a directory of that name existed, which it cannot by construction — `listPersonas` filters to directories and `loadPersonaContent` only reads `persona.md`/`memory.md` from them — but a persona literally named `..` could in principle resolve oddly. In practice, `listPersonas` is the only entry point the user has.
 - **`memory.md` content is the persona's view of truth.** Because the extension tells the agent to "proactively update your memory file" on corrections, the memory file can drift. Review it periodically.
 - **No concurrency safety** on `pendingPersonaPrompt`. Fine for single-agent use; would need locking for multi-agent setups.
@@ -178,9 +167,8 @@ Things you might want to change for your own fork:
 
 ## Source-line index (persona-loader.ts)
 
-- `4` — module-level `pendingPersonaPrompt` declaration
-- `6-44` — `loadPersonaContent` (common → persona → memory → memory guidelines)
-- `46-56` — `listPersonas`
-- `58-95` — `/become-persona` command registration (description, completions, handler)
-- `97-105` — `before_agent_start` handler (appends to system prompt)
-- `107-109` — `agent_end` handler (clears the active persona)
+- `7` — module-level `pendingPersonaPrompt` declaration
+- `9-53` — `loadPersonaContent` (common → persona → memory → memory guidelines)
+- `55-65` — `listPersonas`
+- `70-110` — `/become-persona` command registration (description, completions, handler)
+- `112-120` — `before_agent_start` handler (appends to system prompt; session-sticky)

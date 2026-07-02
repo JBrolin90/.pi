@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-// Module-level state - persists across events
+// Module-level state - persists for the lifetime of the session
 let pendingPersonaPrompt = "";
 
 function loadPersonaContent(personaName: string): string {
@@ -106,19 +106,16 @@ export default function (pi: ExtensionAPI) {
     },
   });
   
-  // Apply persona prompt before agent starts
+  // Apply persona prompt before every agent start. The prompt is staged in
+  // module-level state by the command handler and intentionally NOT cleared
+  // after the turn, so the persona remains active for the rest of the session.
   pi.on("before_agent_start", async (event, _ctx) => {
     if (!pendingPersonaPrompt) {
       return;
     }
-    
+
     return {
       systemPrompt: event.systemPrompt + pendingPersonaPrompt,
     };
-  });
-  
-  // Clear pending prompt after agent ends
-  pi.on("agent_end", async (_event, _ctx) => {
-    pendingPersonaPrompt = "";
   });
 }
