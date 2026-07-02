@@ -10,13 +10,22 @@ A pi extension that lets the user switch the agent's role at runtime by loading 
 
 ## What it does
 
-The extension reads up to three markdown files per persona and appends their contents to pi's system prompt before each agent turn:
+The extension reads the global persona bundle and, on first adopt in a given working directory, lazily initialises a per-project memory tier for the active persona. On every `/become-persona`, four sources are concatenated into the system prompt in this order:
 
 1. `~/.pi/agent/personas/common.md` — shared guidelines that apply to **every** persona.
 2. `~/.pi/agent/personas/<name>/persona.md` — the role definition.
-3. `~/.pi/agent/personas/<name>/memory.md` — persona-specific notes, preferences, and accumulated knowledge.
+3. `~/.pi/agent/personas/<name>/memory.md` — cross-project working notes, preferences, and accumulated knowledge for this persona.
+4. `<cwd>/.personas/<name>/*.md` — the per-project tier. On first adopt in a given working directory the loader auto-creates `<cwd>/.personas/<name>/` and an empty `project.md`, then reads every `*.md` in that directory (sorted alphabetically) under `# Project Memory (filename.md)` banners with the literal filename in place of `filename.md`.
 
-It also injects a "Memory Guidelines" footer that points the agent at the persona's `memory.md` and instructs it to update that file when the user asks it to remember something, corrects it, or new information is learned.
+It also injects a "Memory Guidelines" footer (verbatim, four bullets) pointing the agent at three paths and instructing it to update the appropriate tier depending on what it has learned:
+
+```text
+# Memory Guidelines
+- Your cross-project persona memory: `~/.pi/agent/personas/<name>/memory.md`
+- Your per-project persona memory: `<cwd>/.personas/<name>/project.md`
+- The shared project spec (read by all personas in this project): `<cwd>/AGENT.md`
+- **CRITICAL**: If the user explicitly asks you to remember something, corrects you, or you learn something new, you MUST proactively update your memory file using your file editing tools. Durable cross-project learnings go in memory.md; per-project working notes go in project.md; shared project spec changes go in AGENT.md. Do not maintain an achievement log in any persona file — git history is the canonical record of project history.
+```
 
 The persona content is **appended** to the system prompt that pi has already built (which includes any `AGENTS.md`/`CLAUDE.md` and `SYSTEM.md`/`APPEND_SYSTEM.md`). It does not replace anything.
 
@@ -33,6 +42,8 @@ To install elsewhere (project-local, or as a git/npm package), see `docs/extensi
 Reload with `/reload` after moving the file (per `docs/extensions.md:7`).
 
 ## Personas directory layout
+
+**Global persona directory** — read on every `/become-persona`:
 
 ```
 ~/.pi/agent/personas/
@@ -51,6 +62,16 @@ Reload with `/reload` after moving the file (per `docs/extensions.md:7`).
 
 The persona directory must be a sibling of `common.md`; the loader discovers personas by listing subdirectories of `~/.pi/agent/personas/`. A persona is "valid" iff it has a `persona.md`. `memory.md` is optional.
 
+**Per-project tier** — lazily created on first adopt in a given `<cwd>`:
+
+```
+<cwd>/.personas/<active persona>/
+├── project.md                 # Auto-created empty on first adopt; loader is the sole writer (only on the auto-create, never amended).
+└── notes.md                   # Add any *.md files; picked up on the next /become-persona.
+```
+
+The loader is the sole writer of `project.md` (and only on the auto-create). Any sibling `*.md` is read on every `/become-persona` invocation. See "Persona file semantics → Per-project tier" below for full semantics.
+
 ## Commands
 
 ### `/become-persona [name]`
@@ -59,7 +80,7 @@ Switch to a persona. With no argument, lists the available personas.
 
 - **Argument completions**: tab-completion iterates the subdirectories of `~/.pi/agent/personas/`, case-insensitive prefix match.
 - **Argument parsing**: surrounding quotes (`'`, `"`, `` ` ``) are stripped before lookup.
-- **Behavior on success**: stores the assembled persona content in module-level state (`pendingPersonaPrompt`) and shows a `Switched to persona: <name>` toast.
+- **Behavior on success**: stores the assembled persona content in module-level state (`pendingPersonaPrompt`) and shows a `Switched to persona: <name>` toast. If this is the first adopt in the current working directory, an additional one-time toast reads `Initialised project memory at .personas/<name>/`.
 - **Behavior on missing persona.md**: warns to stderr (`[persona-loader] persona.md not found for "<name>"`), notifies `Persona "<name>" not found` to the UI, and does **not** clear any previously active persona.
 
 ## Hooks
@@ -86,19 +107,21 @@ Read on every persona switch. Use it for cross-persona conventions: voice, organ
 
 ### `persona.md`
 
-The role definition. Read on the first `loadPersonaContent` call after a `/become-persona`. If absent, the loader logs a warning and returns `""` — no persona is applied for that turn.
+The role definition. Re-read on every `/become-persona` call (no caching), so edits take effect on the next switch without reloading the extension. If absent, the loader logs a warning and returns `""` — no persona is applied for that turn.
 
 Convention: keep `persona.md` stable. Role, expertise, tone, and tool usage go here.
 
 ### `memory.md`
 
-Optional. Read after `persona.md` if present. This is where dynamic state, preferences, and learned facts accumulate.
+Optional. Re-read on every `/become-persona` call (no caching), so edits take effect on the next switch without reloading the extension. This is where dynamic state, preferences, and learned facts accumulate. The `memory.md` is expected to be a living document — the "Memory Guidelines" footer (quoted verbatim in "What it does") instructs the agent to update it whenever new facts surface that should travel with the persona across all projects.
 
-The injected "Memory Guidelines" footer explicitly tells the agent:
+### Per-project tier (`<cwd>/.personas/<name>/*.md`)
 
-> **CRITICAL**: If the user explicitly asks you to remember something, corrects you, or you learn something new, you MUST proactively update your memory file using your file editing tools.
+On the first `/become-persona <name>` invocation in a given working directory, the loader auto-creates `<cwd>/.personas/<name>/` and writes an empty `project.md` there. On every subsequent `/become-persona <name>` (in the same cwd or any other cwd where the directory already exists) every `*.md` file under that directory is read (sorted alphabetically) and injected into the prompt under `# Project Memory (filename.md)` banners with the literal filename in place of `filename.md`.
 
-So the persona's `memory.md` is expected to be a living document, not a one-time write.
+**Use it for** notes specific to *this* project that don't belong in the persona's cross-project `memory.md` — architecture notes, project-specific glossary, in-flight decisions, etc.
+
+**Ownership**: the loader is the sole writer of `project.md`, and only on the initial auto-create (it never overwrites or amends that file). You may freely add any number of other `*.md` files alongside it — the loader picks them up automatically on the next `/become-persona`. The "Memory Guidelines" footer tells the agent which kind of fact belongs in `project.md` (per-project) vs. `memory.md` (cross-project) vs. `AGENT.md` (shared spec).
 
 ## Module-level state: `pendingPersonaPrompt`
 
@@ -124,10 +147,10 @@ So a corrupted or unreadable persona silently fails to apply. The agent runs wit
 This is a **global** extension: it auto-loads on every pi session, in every project, regardless of trust state (per `docs/extensions.md:114` and the `project_trust` ordering at `docs/extensions.md:342`). It:
 
 - Reads from a fixed directory under `$HOME/.pi/agent/personas/`.
-- Writes nothing to disk itself.
+- Writes **only** to `<cwd>/.personas/<persona>/project.md` — and only on the first `/become-persona <persona>` in a given working directory (auto-creates the empty file for the per-project tier). After that initial auto-create the loader never overwrites or amends that file; the user owns its contents. No other filesystem writes are performed.
 - Has no network, no subprocess, no eval, no shell-out.
 
-The only attack surface is the persona markdown files themselves, which become part of the system prompt. Treat `~/.pi/agent/personas/**/persona.md` and `memory.md` with the same trust as `AGENTS.md` — they instruct the LLM with the agent's full tool access.
+The only attack surfaces are the persona markdown files themselves, which become part of the system prompt. Treat `~/.pi/agent/personas/**/persona.md` and `memory.md` with the same trust as `AGENTS.md` — they instruct the LLM with the agent's full tool access. The per-project tier (`<cwd>/.personas/<persona>/*.md`) is in the same trust class: any `*.md` you put there becomes part of the system prompt on subsequent `/become-persona` calls in that cwd.
 
 ## Design notes
 
@@ -141,7 +164,7 @@ The only attack surface is the persona markdown files themselves, which become p
 Things you might want to change for your own fork:
 
 - **One-shot persona**: re-add an `agent_end` hook that sets `pendingPersonaPrompt = ""` if you want each turn to require a fresh `/become-persona` invocation.
-- **Project-scoped personas**: read `<cwd>/.pi/personas/` and merge with the global directory.
+- **Cross-persona content reuse**: when several personas need the same boilerplate, expose an opt-in `<!-- include: <other-persona> -->` directive in `persona.md` rather than duplicating the text across personas.
 - **Persona as a slash command argument**: allow `pi /become-persona Foo "be brief"` style extra instructions appended to the prompt.
 - **Hot-reload persona files**: re-read `persona.md`/`memory.md` on every `before_agent_start` rather than only on `/become-persona` (so edits to `memory.md` from inside the agent take effect on the *next* turn without a re-switch).
 - **Validation**: fail loudly (e.g. toast) instead of silently returning `""` when `persona.md` is missing.

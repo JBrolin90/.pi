@@ -15,11 +15,19 @@ persona's markdown bundle onto the next system prompt. Concretely it:
 
 - Discovers available personas by listing subdirectories of
   `~/.pi/agent/personas/`.
-- Reads up to three files per persona on demand:
-  `common.md` (shared, persona-agnostic), `<name>/persona.md` (role),
-  and `<name>/memory.md` (working notes).
-- Appends a "Memory Guidelines" footer that points the agent at its own
-  `memory.md` and instructs it to update that file when remembered/corrected.
+- Reads up to four sources per persona on demand: `common.md` (shared,
+  persona-agnostic), `<name>/persona.md` (role), `<name>/memory.md`
+  (cross-project working notes), and the per-project tier at
+  `<cwd>/.personas/<name>/*.md` (auto-created on first adopt in a given
+  working directory; the helper also `writeFileSync`s an empty
+  `project.md` there). All `*.md` files in the per-project dir are read,
+  sorted alphabetically, on every `/become-persona`.
+- Appends a "Memory Guidelines" footer pointing the agent at three
+  paths — `<name>/memory.md` (cross-project),
+  `<cwd>/.personas/<name>/project.md` (per-project), and `<cwd>/AGENT.md`
+  (shared spec) — with a tier-routing rule for which kind of fact goes
+  where and a prohibition on achievement-log bookkeeping (git history is
+  canonical).
 - Registers tab-completion against the discovered persona names.
 - On `before_agent_start`, returns a `systemPrompt` composed of pi's
   existing prompt plus the staged persona content. The staged content is
@@ -99,38 +107,60 @@ The non-obvious decisions, in order of appearance.
    `/reload` the prompt must be re-applied with another `/become-persona`
    call. This is documented under § 10.
 
-2. **`try` around the entire read block, not per file.** A single failure
-   (e.g. permission denied on `common.md`) would otherwise leak partial
-   output to the system prompt. The block also returns the empty string on
-   failure so the handler can surface a single, consistent "not found"
-   message.
+2. **`try` boundaries.**
+   - `loadPersonaContent`'s common/persona/memory reads are wrapped in
+     one outer `try` (not per file) because a single failure (e.g.
+     permission denied on `common.md`) would otherwise leak partial
+     output to the system prompt; the block returns the empty string so
+     the handler surfaces one consistent "not found" message.
+   - `loadProjectPersonaMemory` deliberately has its own two try blocks
+     — one around `mkdirSync`/`writeFileSync` (init) and one around
+     `readdirSync`/`readFileSync` (read) — because the two failure modes
+     are semantically distinct. Init failure → empty per-project tier;
+     persona still loads from the other tiers. Read failure → log and
+     return whatever was read so far; does not propagate to the outer
+     try.
 
 3. **Strict concatenation order.** `common.md` → persona profile →
-   persona memory → Memory Guidelines footer. The footer is appended inside
-   the function rather than by the hook so it travels as part of the same
-   prompt payload and is identical regardless of which hook fires. Keeping
-   the footer last positions the CRITICAL update instruction closest to the
-   agent's *current* behaviour — i.e. the rules of engagement come after
-   the role, so the agent processes them as the most recent context.
+   persona memory → per-project tier (`<cwd>/.personas/<name>/*.md`,
+   sorted alphabetically) → Memory Guidelines footer. The footer is
+   appended inside the function rather than by the hook so it travels
+   as part of the same prompt payload and is identical regardless of
+   which hook fires. Keeping the footer last positions the CRITICAL
+   update instruction closest to the agent's *current* behaviour — i.e.
+   the rules of engagement come after the role, so the agent processes
+   them as the most recent context.
 
-4. **Empty string on missing `persona.md`.** If `persona.md` is absent
+4. **Per-project tier helper** (`loadProjectPersonaMemory`). The
+   helper encapsulates everything outside the three global files:
+   `mkdirSync({recursive: true})` of `<cwd>/.personas/<name>/` plus
+   a one-time `writeFileSync` of an empty `project.md` on first adopt,
+   then a sorted `readdirSync`/`readFileSync` of every `*.md` in that
+   directory. The `created: boolean` returned alongside
+   `content: string` lets the command handler trigger the one-time
+   `Initialised project memory at .personas/<name>/` toast without an
+   additional filesystem probe. The helper has its own two try blocks;
+   see step 2 for why it deliberately is *not* folded into the outer
+   try in `loadPersonaContent`.
+
+5. **Empty string on missing `persona.md`.** If `persona.md` is absent
    the function logs a `console.warn` and returns `""` *immediately*, even
    if `memory.md` exists. A persona without a role definition is not a
    persona; silently keeping the memory would mask the misconfiguration.
    The handler treats `""` as "not found" and notifies accordingly.
 
-5. **`personaName.replace(/['"`]/g, "")`** defensively strips wrapping
+6. **`personaName.replace(/['"`]/g, "")`** defensively strips wrapping
    quotes. The slash-command parser sometimes preserves literal quotes from
    the input line, and a typo like `/become-persona 'Marcus '` should not
    fail just because the user fat-fingered a quote.
 
-6. **Tab-completion is a case-insensitive prefix match against
+7. **Tab-completion is a case-insensitive prefix match against
    `listPersonas()`**, returning `null` (not `[]`) when nothing matches.
    Per the extension API contract, `null` lets pi fall back to its own
    completion, which is the correct behaviour when no persona starts with
    the prefix the user has typed.
 
-7. **`return { systemPrompt: event.systemPrompt + pendingPersonaPrompt }`.**
+8. **`return { systemPrompt: event.systemPrompt + pendingPersonaPrompt }`.**
    Returning the whole prompt — not a delta — is required by the hook's
    contract; pi replaces its own systemPrompt with whatever object is
    returned. The order (existing first, persona second) matches the README
@@ -147,6 +177,8 @@ The non-obvious decisions, in order of appearance.
 | `<name>/persona.md` missing | `loadPersonaContent` | Logs `[persona-loader] persona.md not found for "<name>"` via `console.warn`, returns `""`. Memory is also discarded. |
 | `<name>/memory.md` missing | `loadPersonaContent` | Silently skipped. |
 | Filesystem read error (permissions, ENOENT during race, etc.) | `loadPersonaContent` | Caught at the outer `try`, logged as `[persona-loader] failed to load persona files: <err>`, returns `""`. |
+| `<cwd>/.personas/<name>/` cannot be created (`mkdirSync` fails or `writeFileSync` fails) | `loadProjectPersonaMemory` (init try) | Logs `[persona-loader] failed to initialise project memory for "<name>": <err>`, returns `""`. The cross-project persona still loads. |
+| `<cwd>/.personas/<name>/*.md` unreadable after init | `loadProjectPersonaMemory` (read try) | Logs `[persona-loader] failed to read project memory for "<name>": <err>`, returns whatever was read so far (or `""`). Does not propagate to the outer try; the persona is still applied. |
 | Unknown persona name | handler | `ctx.ui.notify('Persona "<name>" not found', 'error')` and returns. |
 | No argument provided to `/become-persona` | handler | Lists available personas via `ctx.ui.notify`, returns. |
 | `~/.pi/agent/personas/` unreadable | `listPersonas` | Returns `[]`; downstream the user sees an empty persona list. |
@@ -183,9 +215,10 @@ The header does **not** import:
 | Dependency | Used in | Why |
 | --- | --- | --- |
 | `@earendil-works/pi-coding-agent` (type-only) | Header | `ExtensionAPI` type for the default-export signature. No runtime value import. |
-| `node:fs` | Source | `existsSync`, `readFileSync`, `readdirSync` — filesystem reads of persona files. |
+| `node:fs` | Source | `existsSync`, `readFileSync`, `readdirSync` for persona + memory reads; `mkdirSync({recursive: true})` + `writeFileSync` for the per-project tier init (writes only to `<cwd>/.personas/<persona>/project.md`; see the row below). |
 | `node:os` | Source | `homedir()` to resolve `~/.pi/agent/personas/`. |
-| `node:path` | Source | `path.join` for persona + memory file paths. |
+| `node:path` | Source | `path.join` for persona + memory file paths, and `path.join(process.cwd(), ".personas", …)` for the per-project tier. |
+| `<cwd>/.personas/<persona>/project.md` | `loadProjectPersonaMemory` (init) | Writable surface. Auto-created (empty) on first `/become-persona <persona>` in a given working directory via `mkdirSync({recursive: true})` + `writeFileSync("")`. The loader is the sole writer and only writes the empty initial file — it never amends or overwrites. Subsequent reads come from this same path (and from any sibling `*.md` files). |
 
 There are no transitive runtime dependencies. The pi package itself is a
 peer dependency of the agent, not of this extension.
@@ -208,7 +241,9 @@ and follows the smoke-test recipe in `extensions/persona-loader/README.md`.
    `Switched to persona: Marcus`.
 5. Trigger an agent turn (any prompt). The next system prompt should now
    contain, in order: pi's default preamble, the `common.md` body, the
-   `persona.md` body, the `memory.md` body, and the Memory Guidelines footer.
+   `persona.md` body, the `memory.md` body, the per-project tier
+   (every `*.md` under `<cwd>/.personas/<name>/`, sorted), and the
+   Memory Guidelines footer.
 6. Run `/become-persona` with no argument — the toast should list
    available personas.
 7. Run `/become-persona DoesNotExist` — should toast a red error.
@@ -238,6 +273,11 @@ No scratch files are produced during verification; nothing to clean up.
   extension folder.
 - **One `console.warn` / `console.error` per failure path**, with a stable
   `[persona-loader]` prefix so the messages are greppable in the agent log.
+- **Per-project tier auto-create is intentional.** On first adopt in a
+  given cwd, the loader creates `<cwd>/.personas/<active persona>/`
+  and writes an empty `project.md` so the per-project tier has a
+  starting surface. This is a one-time write per cwd per persona —
+  see § 1 (Scope) for the rationale and § 5 for the failure semantics.
 - **No destructuring on `process.env`**, no `__dirname`/`__filename`
   references — the module is loaded by jiti, not required as a CommonJS
   module, so those globals are not reliable here.
@@ -288,8 +328,11 @@ No scratch files are produced during verification; nothing to clean up.
   - `dangerous-commands.ts` — unrelated, but a useful example of
     `registerCommand` with no tab completion.
 - **Persona content layout:** `personas/common.md` (the template that
-  the loader actually inlines) and `personas/<name>/persona.md` plus
-  `personas/<name>/memory.md` for any installed persona.
+  the loader actually inlines), `personas/<name>/persona.md` plus
+  `personas/<name>/memory.md` for any installed persona, and
+  `<cwd>/.personas/<active persona>/` as the per-project tier.
+  See `personas/common.md` for the three-tier memory model and the rules
+  on where each kind of fact belongs.
 - **Next module to read if extending this one:** start at the
   `pendingPersonaPrompt` state. That variable is the seam where a future
   "persist persona across reloads" or "in-session persona clear" change

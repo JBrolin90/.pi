@@ -70,11 +70,12 @@ verification report distinguishes:
 
 - After producing each verification report, append a one-line
   entry to `## Per-Module Verification Log` below. Newest first.
-- After a sign-off PASS, briefly note the verification date and
-  verdict in the project's `AGENT.md` achievement log if the
-  project has one (per `common.md`'s inter-session memory rule).
-  The implementer is responsible for `AGENT.md`; the verification
-  log is your own trail.
+- **Do not write sign-off annotations to any persona file.** Git
+  history (commit messages, PR descriptions) is the canonical
+  record of what was verified and when; the committed
+  `tests/<name>.verification.md` is the evidence. `common.md`
+  removed the AGENT.md achievement log by design (git owns that
+  trail).
 
 ## Reference
 
@@ -186,7 +187,45 @@ Append one line per verification report produced, newest first:
         now per Joachim's sign-off)"
 ```
 
+```
+- 2026-07-03 — persona-loader (TS extension) — FAIL — 39 CPs mapped,
+  30 PASS / 0 FAIL on the spec as written / 8 drift findings (D-1..D-8);
+  static cross-check only (no unit tests per Joachim); per-project
+  `<cwd>/.personas/<name>/` tier is implemented but unspecified in
+  README + `persona-loader.md`; routed to Marcus (impl) + Claudia
+  (brief) for resolution; report at
+  `~/.pi/agent/extensions/tests/persona-loader.verification.md`.
+- 2026-07-03 — persona-loader (re-verification #1) — FAIL (unchanged)
+  — Maya's analysis confirmed 7 of 8 findings (D-1, D-2/D-3, D-6, D-7,
+  CP-27, D-4, D-5) plus the PASS rows; she pushed back, gently, on
+  my "either README or .md" framing — accepted (it should be BOTH);
+  no source changes since initial pass; awaiting Maya's doc diffs
+  (README + .md, not either/or); report at
+  `tests/persona-loader.verification.md`; prior report preserved at
+  `tests/persona-loader.verification.2026-07-03-initial.md`.
+  Process note for future cycles: in the initial report, I offered
+  an "either-or" unblock path on a TS extension where the two specs
+  serve different audiences; the implementer correctly pointed out
+  this should be AND not OR. Lesson: when a module has a
+  user-facing spec + an implementation-facing spec, the unblock
+  path almost always needs BOTH updated together.
+- 2026-07-03 — persona-loader (re-verification cycle #3) — PASS — all
+  8 drift findings (D-1..D-8) + the CP-27 caveat closed by Maya's
+  17-doc-edit drop (10 .md + 7 README) plus 2 extras she caught
+  (§ 8 step 5, her own Change Log self-correction per common.md);
+  no source changes since cycle 1; 3 RESIDUAL drifts introduced by
+  this review — D-9 README Source-line index (deferred per Maya,
+  Joachim accepted), D-10 README "persona-loader.ts:4" reference
+  (same disposition), D-11 README + .md "Files" tables missing the
+  per-project tier (minor polish) — all tracked in report § 5 for
+  a future cleanup pass; verdict is PASS (the residuals are
+  navigational polish, not contract drift); report at
+  `tests/persona-loader.verification.md` (cycle-2 + initial
+  preserved alongside).
+```
+
 Replace the previous entry in place when a module is re-verified
 (not appended a second time). The log is the inter-session trail
 for this persona; project-level achievement logs live in the
-project's `AGENT.md` (per `common.md`) and are not duplicated here.
+project's git history (per `common.md`); they are not duplicated in
+any persona file.

@@ -11,9 +11,15 @@ import * as path from "node:path";
 // Module-level state - persists for the lifetime of the session
 let pendingPersonaPrompt = "";
 
-function loadPersonaContent(personaName: string): string {
+interface PersonaLoadResult {
+  content: string;
+  created: boolean;
+}
+
+function loadPersonaContent(personaName: string): PersonaLoadResult {
   let extraPrompt = "";
-  
+  let projectCreated = false;
+
   try {
     // 1. Load common guidelines
     const commonPath = path.join(os.homedir(), ".pi", "agent", "personas", "common.md");
@@ -31,10 +37,10 @@ function loadPersonaContent(personaName: string): string {
       extraPrompt += `${personaContent.trim()}\n`;
     } else {
       console.warn(`[persona-loader] persona.md not found for "${personaName}"`);
-      return "";
+      return { content: "", created: false };
     }
 
-    // 3. Load persona memory
+    // 3. Load persona memory (cross-project working notes)
     const memoryPath = path.join(os.homedir(), ".pi", "agent", "personas", personaName, "memory.md");
     if (fs.existsSync(memoryPath)) {
       const memoryContent = fs.readFileSync(memoryPath, "utf-8");
@@ -42,19 +48,74 @@ function loadPersonaContent(personaName: string): string {
       extraPrompt += `${memoryContent.trim()}\n`;
     }
 
-    // Explicitly guide the agent about memory file location and guidelines
+    // 4. Per-project persona memory tier: <cwd>/.personas/<name>/. Auto-creates
+    //    the directory and an empty project.md on first adopt in this cwd,
+    //    then reads every .md file in the directory (sorted alphabetically).
+    const projectMemory = loadProjectPersonaMemory(personaName);
+    extraPrompt += projectMemory.content;
+    projectCreated = projectMemory.created;
+
+    // 5. Memory Guidelines footer — points the agent at each memory tier
+    //    and the shared project spec, with one rule per tier.
     const resolvedPersonaDir = path.join(os.homedir(), ".pi", "agent", "personas", personaName);
+    const resolvedProjectMd = path.join(process.cwd(), ".personas", personaName, "project.md");
     extraPrompt += `\n\n# Memory Guidelines\n`;
-    extraPrompt += `- Your active persona path is: ${resolvedPersonaDir}\n`;
-    extraPrompt += `- Your memory file is located at: ${path.join(resolvedPersonaDir, "memory.md")}\n`;
-    extraPrompt += `- **CRITICAL**: If the user explicitly asks you to remember something, corrects you, or you learn something new, you MUST proactively update your memory file using your file editing tools.\n`;
+    extraPrompt += `- Your cross-project persona memory: ${path.join(resolvedPersonaDir, "memory.md")}\n`;
+    extraPrompt += `- Your per-project persona memory: ${resolvedProjectMd}\n`;
+    extraPrompt += `- The shared project spec (read by all personas in this project): <cwd>/AGENT.md\n`;
+    extraPrompt += `- **CRITICAL**: If the user explicitly asks you to remember something, corrects you, or you learn something new, you MUST proactively update your memory file using your file editing tools. Durable cross-project learnings go in memory.md; per-project working notes go in project.md; shared project spec changes go in AGENT.md. Do not maintain an achievement log in any persona file — git history is the canonical record of project history.\n`;
 
   } catch (err) {
     console.error("[persona-loader] failed to load persona files:", err);
-    return "";
+    return { content: "", created: false };
   }
-  
-  return extraPrompt;
+
+  return { content: extraPrompt, created: projectCreated };
+}
+
+// Per-project persona memory: <cwd>/.personas/<name>/. Lazily creates the
+// directory and an empty project.md on first adopt in a given cwd, then
+// reads every .md file in the directory (sorted) for inclusion in the
+// persona prompt. Returns an empty { content: "" } if anything fails so
+// the persona still loads even when the per-project tier is unreachable.
+function loadProjectPersonaMemory(personaName: string): PersonaLoadResult {
+  const projectDir = path.join(process.cwd(), ".personas", personaName);
+  const projectMdPath = path.join(projectDir, "project.md");
+  let created = false;
+  let content = "";
+
+  try {
+    const dirExistedBefore = fs.existsSync(projectDir);
+    const mdExistedBefore = fs.existsSync(projectMdPath);
+    fs.mkdirSync(projectDir, { recursive: true });
+    if (!mdExistedBefore) {
+      fs.writeFileSync(projectMdPath, "", "utf-8");
+    }
+    created = !dirExistedBefore || !mdExistedBefore;
+  } catch (err) {
+    console.error(`[persona-loader] failed to initialise project memory for "${personaName}":`, err);
+    return { content: "", created: false };
+  }
+
+  try {
+    const entries = fs.readdirSync(projectDir, { withFileTypes: true });
+    const mdFiles = entries
+      .filter((e: fs.Dirent) => e.isFile() && e.name.endsWith(".md"))
+      .map((e: fs.Dirent) => e.name)
+      .sort();
+    for (const name of mdFiles) {
+      const filePath = path.join(projectDir, name);
+      const fileContent = fs.readFileSync(filePath, "utf-8").trim();
+      content += `\n\n# Project Memory (${name})\n`;
+      if (fileContent.length > 0) {
+        content += `${fileContent}\n`;
+      }
+    }
+  } catch (err) {
+    console.error(`[persona-loader] failed to read project memory for "${personaName}":`, err);
+  }
+
+  return { content, created };
 }
 
 function listPersonas(): string[] {
@@ -70,20 +131,20 @@ function listPersonas(): string[] {
 }
 
 export default function (pi: ExtensionAPI) {
-  
+
   // Register /become-persona command
   pi.registerCommand("become-persona", {
     description: "Switch to a persona profile",
     getArgumentCompletions: (prefix: string) => {
       const personas = listPersonas();
       const filtered = personas.filter(p => p.toLowerCase().startsWith(prefix.toLowerCase()));
-      return filtered.length > 0 
+      return filtered.length > 0
         ? filtered.map(p => ({ value: p, label: p }))
         : null;
     },
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const personaName = args.trim();
-      
+
       if (!personaName) {
         const personas = listPersonas();
         if (personas.length === 0) {
@@ -93,24 +154,27 @@ export default function (pi: ExtensionAPI) {
         ctx.ui.notify(`Available personas: ${personas.join(", ")}`, "info");
         return;
       }
-      
+
       // Remove quotes if present
       const cleanName = personaName.replace(/['"`]/g, "");
-      
-      // Load persona content
-      const extraPrompt = loadPersonaContent(cleanName);
-      if (!extraPrompt) {
+
+      // Load persona content (auto-creates per-project memory on first adopt).
+      const result = loadPersonaContent(cleanName);
+      if (!result.content) {
         ctx.ui.notify(`Persona "${cleanName}" not found`, "error");
         return;
       }
-      
-      // Store for before_agent_start to pick up
-      pendingPersonaPrompt = extraPrompt;
-      
+
+      // Store for before_agent_start to pick up.
+      pendingPersonaPrompt = result.content;
+
       ctx.ui.notify(`Switched to persona: ${cleanName}`, "info");
+      if (result.created) {
+        ctx.ui.notify(`Initialised project memory at .personas/${cleanName}/`, "info");
+      }
     },
   });
-  
+
   // Apply persona prompt before every agent start. The prompt is staged in
   // module-level state by the command handler and intentionally NOT cleared
   // after the turn, so the persona remains active for the rest of the session.

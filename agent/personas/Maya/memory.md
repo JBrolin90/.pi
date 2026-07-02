@@ -158,6 +158,9 @@ sessions.
 (No entries yet — first change will be appended when the first
 feature or bug fix lands.)
 
+- 2026-07-02 — Added per-project persona memory tier. Loader now auto-creates `<cwd>/.personas/<active persona>/` with an empty `project.md` on first adopt in a given cwd, reads every `.md` file in that directory (sorted) under `# Project Memory (filename)` banners, and surfaces a one-time `ctx.ui.notify` toast on the first create. `loadPersonaContent` return type changed from `string` to `{ content, created }`; `loadProjectPersonaMemory` is the new helper. `personas/common.md` flipped to the three-tier model (memory.md cross-project, project.md per-project, AGENT.md shared spec — no achievement log); `personas/Vera/memory.md` touched up to remove AGENT.md-achievement-log references. `persona-loader.md` § 11 got a single-line `(after this change)` pointer to `<cwd>/.personas/<active persona>/`. **Self-correction 2026-07-03**: the prior entry claimed smoke-test steps 9–14 were added to `.md` § 8 — they weren't. The only `.md` change on 2026-07-02 was the § 11 pointer. The § 8 smoke test wasn't expanded at all (Vera's re-verification confirmed this via `git diff`: `.md` was +7/-2 vs HEAD at the time of her initial report, all attributable to the § 11 addition).
+- 2026-07-03 — Closed documentation drift from the 2026-07-02 commit. Updated README (`What it does`, `Personas directory layout`, `Commands`, `Persona file semantics → persona.md`, `Persona file semantics → memory.md`, new `Persona file semantics → Per-project tier`, `Trust and security`, `Customization points`) and `persona-loader.md` (§ 1 Scope, § 4 step 2 try-block rule broadened, § 4 step 3 order string now five-stage, new § 4 step 4 walkthrough of `loadProjectPersonaMemory`, renumber 5→8, § 5 two new error-handling rows, § 7 cwd-write row, § 9 auto-create convention row, § 11 drop "(after this change)" qualifier) to match the shipped per-project tier. Closes Vera's findings D-1, D-2/D-3, D-4, D-6, D-7, D-8 and the CP-27 caveat. No source changes; source remains conformant to intent. Routed back to Vera for re-verification cycle #3.
+
 ## Open Work
 
 (Pulled from `## Known Issues` and from Joachim's feature
@@ -177,3 +180,13 @@ requests. Move to `## Change Log` when work begins; close with a
   see `## Known Issues` row 3. Touches the outer-`try` failure
   path which doesn't have a UI context; needs a design decision
   before implementing.
+- **Per-project memory: cleanup `Marcus/memory.md` line 182** —
+  Marcus's "brief vs. reality" deviation rule still says "the
+  AGENT.md achievement log entry references it" as the trail
+  mechanism. The AGENT.md achievement log no longer exists
+  (`common.md` changed 2026-07-02 to drop it; git owns history).
+  Marcus needs a follow-up to repoint the deviation trail at
+  the per-module `.md` itself (which already documents the
+  deviation per his cardinal rule) or some other post-log
+  mechanism. Design call needed before touching; bundle in a
+  separate small commit.

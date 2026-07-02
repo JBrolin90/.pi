@@ -32,8 +32,16 @@ the sqlcpp POC.
 
 ### Concrete instance
 - **sqlcpp** (POC, est. 2026-06-28) chose `system_agent/` as the
-  `<agent-context-dir>`. Use it as the reference when applying the
-  pattern to a new project.
+  `<agent-context-dir>`. As of 2026-07-02 the spec content was moved
+  out of `system_agent/AGENT.md` and into
+  `<cwd>/.personas/Claudia/project.md` — sqlcpp chose the
+  per-persona project-memory layout instead of `<cwd>/AGENT.md`
+  (per-project deviation from the three-tier standard). The
+  `system_agent/` tree is kept on disk only for the design artefacts
+  (`system-design.md` + `docs/`); cut a fresh `system_agent/AGENT.md`
+  later if/when a shared spec is wanted again. Use the sqlcpp
+  instance as the reference when applying the per-persona
+  variant of the pattern.
 
 ### Conventions
 - `<agent-context-dir>/` is the **single source of truth** that a new
@@ -155,12 +163,15 @@ When the project also has a **parallel implementation workspace**
 **Concretely (sqlcpp instance):** the eight briefs
 (`connection_string_builder-`, `interactive_mode-`, `main-`,
 `odbc_connection-`, `odbc_env-`, `odbc_statement-`, `result_set-`,
-`table_printer_implementation_instructions.md`) all live under
-`implementation_agent/docs/`. The descriptions Marcus wrote
-(`connection_string.md`, `interactive_mode.md`, …) live next
-to their `.cpp` in `implementation_agent/src/`. The intra-brief
-links (`interactive_mode` ↔ `main`) use `../docs/<name>.md`;
-links from a description to its brief use `../docs/<name>.md`.
+`table_printer_implementation_instructions.md`) all live in
+`implementation_agent/src/` — sqlcpp **deviates** from the
+separated-into-`docs/` rule above; no `implementation_agent/docs/`
+was ever created. Marcus's per-module descriptions
+(`connection_string.md`, `interactive_mode.md`, …) live in the
+same `src/` directory; the `_implementation_instruction[s]` suffix
+keeps the two roles unambiguous. As of the 2026-07-02 move, briefs
+that point at project state use `<cwd>/.personas/Claudia/project.md`
+(was `../system_agent/AGENT.md`).
 
 ---
 

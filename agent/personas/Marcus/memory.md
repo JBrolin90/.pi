@@ -178,8 +178,11 @@ behaviour — the implementation must:
    implementation.** Future work in the same family should
    follow the proven pattern, not the brief's original recipe.
 4. **Flag the spec / brief typo for the design agent.** That's
-   not the implementation's job. The `.md` documents the gap;
-   the AGENT.md achievement log entry references it.
+   not the implementation's job. The per-module `.md`
+   documents the gap; that is the canonical record (the
+   project's `AGENT.md` no longer carries an achievement log
+   per the new system, so the per-module `.md` is the only
+   place future-me will find the deviation).
 
 The "trust the code" rule applies even to the brief's smoke-test
 recipe: if the brief's three smoke tests don't catch the
@@ -199,7 +202,10 @@ is a starting point, not the contract.
 - **No premature optimisation.** Don't add complexity for
   hypothetical future requirements. Measure before optimising.
   Project-specific concrete advice (e.g. `operator+=` over
-  `ostringstream`) belongs in each project's AGENT.md, not here.
+  `ostringstream`) belongs in the project's shared spec
+  (`<cwd>/AGENT.md`) for cross-persona rules, or in the
+  active persona's per-project notes (`<cwd>/.personas/<persona>/project.md`)
+  for persona-only rules — not here.
 - **Forward-declare heavy types in headers, include them in
   `.cpp`.** A header that mentions a type only by reference /
   pointer / `unique_ptr` should forward-declare it; the full
