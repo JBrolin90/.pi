@@ -1,2 +1,13 @@
-# Editor — VS Code workspace settings are local
+# Runtime / generated artifacts
+agent/node_modules/
+agent/sessions/
+agent/bin/
+agent/npm/
+agent/run-history.jsonl
+*.log
+
+# Local credentials (per-user, do not commit)
+agent/auth.json
+
+# Editor config (personal, not project-level)
 .vscode/
