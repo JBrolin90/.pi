@@ -6,16 +6,15 @@
   "enabledModels": [
     "ollama/gemma4-26b-a4b-8k",
     "llama.cpp/gemma-4-12b-it-qat-q4_0",
-    "ollama/qwen2.5-coder:14b",
-    "ollama/phi4:latest",
     "minimax/MiniMax-M3",
-    "openrouter/minimax/minimax-m3"
+    "openrouter/minimax/minimax-m3",
+    "ollama/ornith:9b"
   ],
   "defaultThinkingLevel": "minimal",
   "hideThinkingBlock": false,
   "packages": [
-    "npm:pi-json-tools",
     "npm:@juicesharp/rpiv-ask-user-question",
+    "npm:pi-json-tools",
     "npm:pi-web-access"
   ]
 }

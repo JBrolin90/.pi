@@ -28,12 +28,24 @@ persona's markdown bundle onto the next system prompt. Concretely it:
   (shared spec) — with a tier-routing rule for which kind of fact goes
   where and a prohibition on achievement-log bookkeeping (git history is
   canonical).
-- Registers tab-completion against the discovered persona names.
+- Registers tab-completion against the discovered persona names, with each
+  item carrying the persona's `## Title:` line in its `description` field
+  so the dropdown renders `name — title` rows. Also registers a custom
+  autocomplete provider on `session_start` so Tab on `/become-persona `
+  fires the persona dropdown immediately rather than routing to file
+  completion.
 - On `before_agent_start`, returns a `systemPrompt` composed of pi's
   existing prompt plus the staged persona content. The staged content is
   never cleared during the session, so the persona is reapplied on every
   subsequent turn until either another `/become-persona` swaps it or the
   extension is reloaded.
+- Shows the active persona in the TUI footer as `👤 <name> — <title>`
+  (e.g. `👤 Maya — Loader Engineer`) when `<name>/persona.md` carries a
+  `## Title:` line, falling back to `👤 <name>` when the line is missing
+  or unreadable. Wired via `ctx.ui.setStatus("persona", ...)` whenever a
+  UI context is available (gated on `ctx.hasUI`). The status row has the
+  same lifetime as the staged prompt — it appears on `/become-persona`,
+  swaps with the next `/become-persona`, and disappears on `/reload`.
 
 ### Non-responsibilities
 
@@ -42,8 +54,9 @@ The module deliberately does **not**:
 - Replace or rewrite pi's existing system prompt — it only appends.
 - Validate, lint, or parse the markdown contents; it treats them as opaque text.
 - Edit any persona file itself (writing to disk is the agent's job).
-- Persist the active persona to disk; after a reload the agent starts with
-  no persona loaded. `/become-persona` must be re-issued.
+- Expose a command to *clear* the active persona mid-session. To drop
+  it, swap with `/become-persona <other>`, run `/reload`, or end the
+  session.
 - Ship with personas; the personas directory is user-managed.
 - Apply the persona retroactively to a turn that has already started — the
   prompt injection only takes effect on the next `before_agent_start`.
@@ -158,7 +171,9 @@ The non-obvious decisions, in order of appearance.
    `listPersonas()`**, returning `null` (not `[]`) when nothing matches.
    Per the extension API contract, `null` lets pi fall back to its own
    completion, which is the correct behaviour when no persona starts with
-   the prefix the user has typed.
+   the prefix the user has typed. Each item's `description` carries the
+   persona's `## Title:` line (via `listPersonaCompletions`, step 7b),
+   so the dropdown renders `name — title` rows.
 
 8. **`return { systemPrompt: event.systemPrompt + pendingPersonaPrompt }`.**
    Returning the whole prompt — not a delta — is required by the hook's
@@ -166,6 +181,73 @@ The non-obvious decisions, in order of appearance.
    returned. The order (existing first, persona second) matches the README
    spec and is deliberate: appending after pi's own preamble keeps
    pi-managed content authoritative.
+
+7b. **`listPersonaCompletions(prefix)` helper.** Reads every persona's
+    `## Title:` line in one pass via `loadPersonaTitle` (step 10) and
+    returns a list of `{ value, label, description? }` items ready for
+    pi's autocomplete API. Used by both `getArgumentCompletions` (the
+    natural-trigger path that fires when the user types a letter after
+    `/become-persona `) and the custom provider registered in step 7c
+    (the Tab path that fires immediately). Keeping both paths routed
+    through one helper guarantees the dropdown looks identical regardless
+    of how it was triggered.
+
+7c. **Custom autocomplete provider for Tab-immediate persona list.**
+    Pi's built-in `CombinedAutocompleteProvider.handleTabCompletion`
+    routes Tab on slash-command-with-arg to file completion, not the
+    command's `getArgumentCompletions`. To make Tab on `/become-persona `
+    show the persona dropdown immediately, the loader registers a
+    wrapper provider via `ctx.ui.addAutocompleteProvider` on
+    `session_start`. The wrapper detects `/become-persona<ws><arg?>`
+    patterns with a single anchored regex, returns
+    `listPersonaCompletions(argPrefix)` items, and otherwise delegates
+    to the built-in via `current.getSuggestions(...)` so non-persona
+    slash commands and file paths are unaffected. `applyCompletion`
+    delegates too — the built-in's text-replacement logic is correct
+    for the persona case (replace prefix with persona name).
+
+    **`shouldTriggerFileCompletion` override (tab gating).**
+    The wrapper also overrides `shouldTriggerFileCompletion` for the
+    `/become-persona<ws>` pattern. The built-in's impl in
+    `@earendil-works/pi-tui` checks
+    `textBeforeCursor.trim().includes(" ")` — the `.trim()` strips the
+    trailing space after a slash command, so `/become-persona `
+    looks like `/become-persona` (no space) and the built-in returns
+    `false`. The editor's `requestAutocomplete` then returns early
+    without firing the autocomplete request, and Tab on
+    `/become-persona ` shows nothing. We match the un-trimmed text
+    (`/^\/become-persona[ \t]/`) and return `true` so the request
+    fires; `getSuggestions` above then produces the persona dropdown.
+    Scoped to our command so other slash commands with spaces
+    continue to fall through to the built-in's (currently buggy)
+    logic. The override is the smallest change that closes the
+    loop: without it the `getSuggestions` rewrite never runs on
+    the initial Tab path. (Note that the natural-trigger path — typing
+    a letter — works without the override because
+    `requestAutocomplete` only consults `shouldTriggerFileCompletion`
+    when `options.force === true`; natural triggers pass `force=false`.)
+
+9. **Status row via `ctx.ui.setStatus`.** The loader owns one footer
+   slot keyed `"persona"`. On every successful `/become-persona` the
+   loader calls `ctx.ui.setStatus("persona", "👤 <name> — <title>")`
+   *iff* `ctx.hasUI` is true, so the footer is visible in TUI and RPC
+   modes but silently skipped in print/JSON modes. The Title is read
+   from `<name>/persona.md`'s `## Title:` line via the `loadPersonaTitle`
+   helper (step 10); when that line is missing or the file is unreadable,
+   the format falls back to `👤 <name>`. The slot is never cleared by
+   the loader; it disappears implicitly when the extension instance is
+   torn down (`/reload`, end of session) because the framework releases
+   the key with the instance. Other extensions wanting to extend the
+   footer should pick a different key.
+
+10. **`loadPersonaTitle` helper.** Reads `<name>/persona.md` once, runs
+    a single anchored regex (`/^## Title:\s*(.+?)\s*$/m`) to extract the
+    `## Title:` line, and returns the trimmed title text — or `""` if
+    the file is absent, unreadable, or has no Title line. The helper
+    deliberately does *not* fold into `loadPersonaContent`: the Title
+    is metadata for the status row, not prompt content, and keeping the
+    two reads separate means a future change to the prompt-concatenation
+    order doesn't accidentally affect the status row.
 
 ---
 
@@ -238,18 +320,36 @@ and follows the smoke-test recipe in `extensions/persona-loader/README.md`.
    loader will skip it silently.
 3. Restart pi (or `/reload`) so the loader is picked up.
 4. Run `/become-persona Marcus` — the toast should read
-   `Switched to persona: Marcus`.
-5. Trigger an agent turn (any prompt). The next system prompt should now
+   `Switched to persona: Marcus`. The TUI footer should now show
+   `👤 Marcus — Implementation Engineer`.
+5. Tab on `/become-persona ` (slash command, name, then a space, no
+   argument yet) — the autocomplete dropdown should appear immediately
+   with all 12 personas listed, each row showing `name — title`
+   (e.g. `Marcus — Implementation Engineer`). This is the
+   "immediately" path; without it, pi's built-in routes Tab on
+   slash-command-with-arg to file completion and the dropdown never
+   appears until the user types a letter.
+6. Tab on `/become-persona M` — the dropdown should appear with the
+   two `M`-prefixed personas (`Marcus`, `Maya`) and their titles.
+7. Trigger an agent turn (any prompt). The next system prompt should now
    contain, in order: pi's default preamble, the `common.md` body, the
    `persona.md` body, the `memory.md` body, the per-project tier
    (every `*.md` under `<cwd>/.personas/<name>/`, sorted), and the
    Memory Guidelines footer.
-6. Run `/become-persona` with no argument — the toast should list
+8. Run `/become-persona` with no argument — the toast should list
    available personas.
-7. Run `/become-persona DoesNotExist` — should toast a red error.
-8. End the turn — the next prompt should still contain persona content
-   (the prompt is session-sticky until `/become-persona` is invoked again
-   or the extension is reloaded).
+9. Run `/become-persona DoesNotExist` — should toast a red error.
+10. End the turn — the next prompt should still contain persona content
+    (the prompt is session-sticky until `/become-persona` is invoked again
+    or the extension is reloaded).
+11. Run `/reload` — the footer row should clear (it was tied to the
+    extension instance). Re-run `/become-persona Marcus` to bring the
+    persona and the footer back together.
+12. (Title fallback) Edit `<persona>/persona.md` temporarily to remove
+    the `## Title:` line. Re-run `/become-persona <persona>` — the
+    footer should show `👤 <name>` with no em-dash and no trailing
+    whitespace. Restore the `## Title:` line and re-run `/become-persona`
+    to confirm the title returns to the footer.
 
 No scratch files are produced during verification; nothing to clean up.
 
@@ -278,6 +378,10 @@ No scratch files are produced during verification; nothing to clean up.
   and writes an empty `project.md` so the per-project tier has a
   starting surface. This is a one-time write per cwd per persona —
   see § 1 (Scope) for the rationale and § 5 for the failure semantics.
+- **Status-row ownership is the loader's.** The footer key `"persona"`
+  is reserved for this extension. No other extension should use the
+  same key; cross-extension key collisions produce clobbering that is
+  hard to debug.
 - **No destructuring on `process.env`**, no `__dirname`/`__filename`
   references — the module is loaded by jiti, not required as a CommonJS
   module, so those globals are not reliable here.
@@ -286,12 +390,16 @@ No scratch files are produced during verification; nothing to clean up.
 
 ## 10. Known issues
 
-- **State does not survive reload.** `pendingPersonaPrompt` is module-level
-  and disappears when the extension is re-evaluated by jiti after
-  `/reload`. After every edit to this file (and after every manual
-  `/reload`), the user must re-run `/become-persona`. A future improvement
-  would be to persist the chosen persona name to a small JSON file under
-  `~/.pi/agent/` and re-stage on `session_start`.
+- **State does not survive reload.** `pendingPersonaPrompt` is
+  module-level and disappears when the extension is re-evaluated by
+  jiti after `/reload`. After every edit to this file (and after every
+  manual `/reload`), the user must re-run `/become-persona`. Persistence
+  via a `~/.pi/agent/.persona-state.json` file was considered and
+  rejected for multi-terminal use — a single shared slot would clobber
+  itself across concurrent pi sessions in different terminals. The
+  TUI footer status row follows the same lifetime (it disappears on
+  `/reload` for the same reason, since the row is keyed by extension
+  instance).
 - **No filesystem caching.** Every `/become-persona` call re-reads all
   three markdown files from disk. For a handful of small files this is
   negligible; for users with very large `memory.md` files it would be
@@ -327,6 +435,9 @@ No scratch files are produced during verification; nothing to clean up.
     append is structured.
   - `dangerous-commands.ts` — unrelated, but a useful example of
     `registerCommand` with no tab completion.
+  - `model-status.ts` — closest analog for the `setStatus` path;
+    shows the pattern of calling `setStatus` from an event handler
+    (here, `model_select` instead of `/become-persona`).
 - **Persona content layout:** `personas/common.md` (the template that
   the loader actually inlines), `personas/<name>/persona.md` plus
   `personas/<name>/memory.md` for any installed persona, and

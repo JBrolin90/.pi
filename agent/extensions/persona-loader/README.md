@@ -29,6 +29,8 @@ It also injects a "Memory Guidelines" footer (verbatim, four bullets) pointing t
 
 The persona content is **appended** to the system prompt that pi has already built (which includes any `AGENTS.md`/`CLAUDE.md` and `SYSTEM.md`/`APPEND_SYSTEM.md`). It does not replace anything.
 
+The active persona is also **shown in the TUI footer** as `👤 <name> — <title>` when `<name>/persona.md` carries a `## Title:` line (e.g. `👤 Maya — Loader Engineer`), falling back to `👤 <name>` when the line is absent (via `ctx.ui.setStatus("persona", ...)`). The footer row shares the staged prompt's session-local lifetime — it appears on `/become-persona`, swaps with the next `/become-persona`, and disappears on `/reload` (the row is keyed by extension instance).
+
 ## Installation
 
 The extension is a single TypeScript file at `~/.pi/agent/extensions/persona-loader.ts`. pi's jiti-based loader picks it up automatically (per `docs/extensions.md:178`); no compilation or `package.json` is required.
@@ -78,9 +80,9 @@ The loader is the sole writer of `project.md` (and only on the auto-create). Any
 
 Switch to a persona. With no argument, lists the available personas.
 
-- **Argument completions**: tab-completion iterates the subdirectories of `~/.pi/agent/personas/`, case-insensitive prefix match.
+- **Argument completions**: tab-completion iterates the subdirectories of `~/.pi/agent/personas/`, case-insensitive prefix match. Each item carries the persona's `## Title:` line in its `description` field so the dropdown renders `name — title` rows (e.g. `Marcus — Implementation Engineer`). The loader also registers a custom autocomplete provider (via `ctx.ui.addAutocompleteProvider` on `session_start`) so Tab on `/become-persona ` (with or without an argument) fires the dropdown immediately. Without this, pi's built-in routes Tab on slash-command-with-arg to file completion, so the persona dropdown would not appear until the user typed a letter to trigger a natural autocomplete fire.
 - **Argument parsing**: surrounding quotes (`'`, `"`, `` ` ``) are stripped before lookup.
-- **Behavior on success**: stores the assembled persona content in module-level state (`pendingPersonaPrompt`) and shows a `Switched to persona: <name>` toast. If this is the first adopt in the current working directory, an additional one-time toast reads `Initialised project memory at .personas/<name>/`.
+- **Behavior on success**: stores the assembled persona content in module-level state (`pendingPersonaPrompt`) and updates the TUI footer to `👤 <name> — <title>` (or `👤 <name>` when no `## Title:` line is present in the persona). A `Switched to persona: <name>` toast is shown. If this is the first adopt in the current working directory, an additional one-time toast reads `Initialised project memory at .personas/<name>/`.
 - **Behavior on missing persona.md**: warns to stderr (`[persona-loader] persona.md not found for "<name>"`), notifies `Persona "<name>" not found` to the UI, and does **not** clear any previously active persona.
 
 ## Hooks
@@ -98,6 +100,24 @@ pi.on("before_agent_start", async (event, _ctx) => {
 - **Appends**, never replaces. The chained system prompt that pi has built (AGENTS.md, SYSTEM.md, tool snippets, prior extension handlers) is preserved.
 - **Session-sticky**: once `/become-persona <name>` is run, the chosen persona is appended on every subsequent `before_agent_start` for the rest of the session. Run `/become-persona <other-name>` to swap personas mid-session; reload the extension (or end the session) to clear.
 - Handlers run in extension load order (per `docs/extensions.md:764`); a later extension can still mutate the prompt after this one.
+
+### TUI footer status row
+
+```ts
+pi.registerCommand("become-persona", {
+  // ...
+  handler: async (args, ctx) => {
+    // ... after a successful load:
+    const title = loadPersonaTitle(cleanName);
+    const statusText = title ? `👤 ${cleanName} — ${title}` : `👤 ${cleanName}`;
+    if (ctx.hasUI) ctx.ui.setStatus("persona", statusText);
+  },
+});
+```
+
+- The loader owns one footer slot keyed `"persona"`. The slot is updated on every successful `/become-persona` and disappears on `/reload` or end-of-session (the framework releases the key with the extension instance). The status text combines the directory name passed to `/become-persona` with the persona's `## Title:` line, separated by an em-dash — `👤 <name> — <title>`. (`common.md` requires the directory name to equal the `## Name:` field, so the status row's `<name>` half and the persona's identity name never diverge.) When the `## Title:` line is absent or the file is unreadable, the format falls back to `👤 <name>`.
+- If you write another extension that wants to extend the footer, pick a different key (`ctx.ui.setStatus("my-ext", ...)`) — cross-extension key collisions silently clobber.
+- Print mode (`pi -p`) and JSON mode do not render the footer; the loader guards `setStatus` on `ctx.hasUI` so no-ops are silent.
 
 ## Persona file semantics
 
@@ -125,12 +145,14 @@ On the first `/become-persona <name>` invocation in a given working directory, t
 
 ## Module-level state: `pendingPersonaPrompt`
 
-The variable lives at module scope (`persona-loader.ts:4`). Implications:
+The variable lives at module scope (`persona-loader.ts:7`). Implications:
 
 - **Persists across events** within the same extension instance.
-- **Survives `/reload`?** Not documented; the file is re-imported via jiti, so the new instance gets a fresh empty string. Empirically, you should re-run `/become-persona` after `/reload` to be safe.
+- **Survives `/reload`?** No. The file is re-imported via jiti after `/reload`, so the new instance gets a fresh empty string — you must re-run `/become-persona`. A `~/.pi/agent/.persona-state.json`-backed persistence was considered and rejected for multi-terminal use (a single shared slot would clobber itself across concurrent pi sessions in different terminals).
 - **Race condition**: if two `before_agent_start` events fire concurrently (uncommon but possible with parallel agents), they would read the same value. In practice pi processes turns sequentially, so this is theoretical.
 - **Session-sticky by design**: the staged prompt is never cleared during the session. The model is "persona is active for the whole session once loaded" rather than "applied to the next turn only."
+
+The TUI footer slot keyed `"persona"` is owned by the loader. If you write another extension, pick a different key (`ctx.ui.setStatus("my-ext", ...)`) — cross-extension key collisions silently clobber.
 
 ## Error handling
 
@@ -173,6 +195,7 @@ Things you might want to change for your own fork:
 ## Limitations and known sharp edges
 
 - **No in-session clear**. Once a persona is active, the only ways to drop it are `/reload`, ending the session, or running `/become-persona <other-name>` to swap. There is no command to explicitly clear.
+- **No cross-reload persistence.** A `~/.pi/agent/.persona-state.json`-backed restore was considered and rejected for multi-terminal use — a single shared slot would clobber itself across concurrent pi sessions. The TUI footer row shares the staged prompt's session-local lifetime; both require a fresh `/become-persona` after `/reload`.
 - **No argument validation** beyond the quote strip. `../etc/passwd` would resolve to `~/.pi/agent/personas/../etc/passwd` only if a directory of that name existed, which it cannot by construction — `listPersonas` filters to directories and `loadPersonaContent` only reads `persona.md`/`memory.md` from them — but a persona literally named `..` could in principle resolve oddly. In practice, `listPersonas` is the only entry point the user has.
 - **`memory.md` content is the persona's view of truth.** Because the extension tells the agent to "proactively update your memory file" on corrections, the memory file can drift. Review it periodically.
 - **No concurrency safety** on `pendingPersonaPrompt`. Fine for single-agent use; would need locking for multi-agent setups.
@@ -190,8 +213,29 @@ Things you might want to change for your own fork:
 
 ## Source-line index (persona-loader.ts)
 
+(Run `git grep -nE '^(function|const|let|export) ' ~/.pi/agent/extensions/persona-loader.ts` for the live source. The following summary is for orientation only and will rot on the next code change.)
+
+- `pendingPersonaPrompt` declaration
+- `loadPersonaContent` (common → persona → memory → project tier → memory-guidelines footer) and the `PersonaLoadResult` return type
+- `loadProjectPersonaMemory` (init + read of `<cwd>/.personas/<name>/*.md`)
+- `loadPersonaTitle` (reads `<name>/persona.md` for the `## Title:` line)
+- `listPersonaCompletions` (autocomplete-item builder; name + title)
+- `listPersonas`
+- `/become-persona` command registration (description, completions, handler — also calls `ctx.ui.setStatus("persona", ...)` to update the TUI footer)
+- `session_start` handler — registers the custom autocomplete provider so Tab on `/become-persona ` fires the persona dropdown immediately
+- `before_agent_start` handler (appends to system prompt; session-sticky)
+
+## Source-line index (persona-loader.ts)
+
+Line numbers are approximate (re-derive from source after non-trivial edits):
+
 - `7` — module-level `pendingPersonaPrompt` declaration
-- `9-53` — `loadPersonaContent` (common → persona → memory → memory guidelines)
-- `55-65` — `listPersonas`
-- `70-110` — `/become-persona` command registration (description, completions, handler)
-- `112-120` — `before_agent_start` handler (appends to system prompt; session-sticky)
+- `9-13` — `PersonaLoadResult` interface
+- `20-80` — `loadPersonaContent` (common → persona → memory → per-project tier → memory guidelines)
+- `82-125` — `loadProjectPersonaMemory` (init + read of `<cwd>/.personas/<name>/*.md`)
+- `127-152` — `loadPersonaTitle`
+- `154-163` — `listPersonaCompletions`
+- `165-175` — `listPersonas`
+- `180-237` — `/become-persona` command registration (description, completions, handler)
+- `239-269` — `session_start` handler — custom autocomplete provider for Tab-immediate persona list
+- `271-280` — `before_agent_start` handler (appends to system prompt; session-sticky)

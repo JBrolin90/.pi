@@ -106,12 +106,16 @@ formal sign-off (per the Vera persona's loop). Don't claim
 issues surface. For a bug-fix that closes one of these, move the
 row to `## Change Log` with a "closes: <issue>" tag.)
 
-- **State does not survive `/reload`.** `pendingPersonaPrompt` is
-  module-level and disappears when the extension is re-evaluated
-  by jiti. Fix candidate: persist the active persona name to
-  `~/.pi/agent/.persona-state.json` on `/become-persona` and
-  re-apply in a `session_start` hook. Tracked in `## Open Work`
-  below.
+- **State does not survive `/reload`.** `pendingPersonaPrompt`
+  is module-level and disappears when the extension is
+  re-evaluated by jiti. The TUI footer row has the same lifetime
+  (keyed by extension instance). Persistence via a global
+  `~/.pi/agent/.persona-state.json` was attempted and rejected:
+  a single shared slot would clobber itself across the multiple
+  concurrent Pi sessions Joachim runs in different terminals. A
+  future fix would need a per-session, not per-host, mechanism
+  (per-pid `/tmp` file, environment hint, or accept the
+  limitation).
 - **No filesystem caching.** Every `/become-persona` call
   re-reads all three markdown files. For a handful of small files
   this is negligible; for users with very large `memory.md` files
@@ -135,11 +139,12 @@ row to `## Change Log` with a "closes: <issue>" tag.)
   called with `withFileTypes` so symlinks to directories will be
   enumerated as subdirectories; the loader does not `realpath`
   them. Low-risk because the personas directory is user-managed.
-- **No `/persona-status` command.** The user has no way to query
-  the active persona at a glance — they have to remember what
-  they last `/become-persona`'d. Fix candidate: register a
-  read-only command that reads the persisted state and emits a
-  toast. Depends on the reload-persistence fix above.
+- **No `/persona-status` command.** The user has no way to
+  query the active persona at a glance — they have to remember
+  what they last `/become-persona`'d, or look at the TUI footer
+  for `👤 <Name>`. Fix candidate: register a read-only command
+  that reads module-level state via a small inspection helper
+  (since persistence is rejected for multi-terminal use).
 
 ## Change Log
 
@@ -160,6 +165,10 @@ feature or bug fix lands.)
 
 - 2026-07-02 — Added per-project persona memory tier. Loader now auto-creates `<cwd>/.personas/<active persona>/` with an empty `project.md` on first adopt in a given cwd, reads every `.md` file in that directory (sorted) under `# Project Memory (filename)` banners, and surfaces a one-time `ctx.ui.notify` toast on the first create. `loadPersonaContent` return type changed from `string` to `{ content, created }`; `loadProjectPersonaMemory` is the new helper. `personas/common.md` flipped to the three-tier model (memory.md cross-project, project.md per-project, AGENT.md shared spec — no achievement log); `personas/Vera/memory.md` touched up to remove AGENT.md-achievement-log references. `persona-loader.md` § 11 got a single-line `(after this change)` pointer to `<cwd>/.personas/<active persona>/`. **Self-correction 2026-07-03**: the prior entry claimed smoke-test steps 9–14 were added to `.md` § 8 — they weren't. The only `.md` change on 2026-07-02 was the § 11 pointer. The § 8 smoke test wasn't expanded at all (Vera's re-verification confirmed this via `git diff`: `.md` was +7/-2 vs HEAD at the time of her initial report, all attributable to the § 11 addition).
 - 2026-07-03 — Closed documentation drift from the 2026-07-02 commit. Updated README (`What it does`, `Personas directory layout`, `Commands`, `Persona file semantics → persona.md`, `Persona file semantics → memory.md`, new `Persona file semantics → Per-project tier`, `Trust and security`, `Customization points`) and `persona-loader.md` (§ 1 Scope, § 4 step 2 try-block rule broadened, § 4 step 3 order string now five-stage, new § 4 step 4 walkthrough of `loadProjectPersonaMemory`, renumber 5→8, § 5 two new error-handling rows, § 7 cwd-write row, § 9 auto-create convention row, § 11 drop "(after this change)" qualifier) to match the shipped per-project tier. Closes Vera's findings D-1, D-2/D-3, D-4, D-6, D-7, D-8 and the CP-27 caveat. No source changes; source remains conformant to intent. Routed back to Vera for re-verification cycle #3.
+- 2026-07-03 — **Fixed bug** where Tab on `/become-persona ` (slash command + space, no argument) showed no autocomplete dropdown. Root cause: pi's built-in `CombinedAutocompleteProvider.shouldTriggerFileCompletion` (in `@earendil-works/pi-tui`) checks `textBeforeCursor.trim().includes(" ")` — the `.trim()` strips the trailing space after a slash command, so `/become-persona ` looks like `/become-persona` (no space) and the built-in returns `false`. The editor's `requestAutocomplete` then returns early without firing the autocomplete request, and Tab on `/become-persona ` shows nothing. The natural-trigger path (typing a letter) worked because `requestAutocomplete` only consults `shouldTriggerFileCompletion` when `options.force === true`; natural triggers pass `force=false`. The backspace path worked because `updateAutocomplete` calls `requestAutocomplete` with `force=autocompleteState === "force"` — if the prior state was `"regular"` (from natural triggers), `force=false` skips the check. Fix: override `shouldTriggerFileCompletion` in the custom provider wrapper to return `true` for the `/become-persona<ws>` pattern (matched against the un-trimmed text via `/^\/become-persona[ \t]/`); delegate to the built-in otherwise. Scoped to our command so other slash commands continue to fall through to the built-in's (currently buggy) logic without changing behaviour. Source diff: ~6 lines net (the wrapper's shouldTriggerFileCompletion). Doc updates: `persona-loader.md` § 4 step 7c amended with a `shouldTriggerFileCompletion` override paragraph explaining the trim() bug, the workaround, and why the natural-trigger and backspace paths were unaffected. Smoke-tested via Node: 7 cases (the bug case + 6 surrounding contexts) all behave correctly with the fix; no regression for other slash commands.
+- 2026-07-03 — Tab on `/become-persona ` (slash command + space, no argument) now fires the persona autocomplete dropdown immediately. The previous behaviour routed to pi's file completion and only showed the dropdown after the user typed a letter (natural trigger). Fix: registered a custom autocomplete provider via `ctx.ui.addAutocompleteProvider` on `session_start` that detects `/become-persona<ws><arg?>` with a single anchored regex and returns `listPersonaCompletions(argPrefix)` items before the built-in provider sees the request. Both paths (Tab and natural trigger) now render the same `name — title` shape via a shared `listPersonaCompletions` helper; each item carries `value`/`label` = the directory name and `description` = the `## Title:` line read by `loadPersonaTitle`. Source diff: ~60 lines (helper + session_start handler + import). Doc updates: `persona-loader.md` § 4 step 7 amended (description field) + new steps 7b/7c (helper + custom provider) + § 8 step 5 (Tab-immediate assertion) and step 6 (Tab-with-arg assertion) added, with subsequent steps renumbered. README: argument-completions bullet expanded; Source-line index updated. Smoke-tested the regex + helper via Node against all 12 personas + 8 edge cases (empty arg, partial arg, tab separator, `/become-persona` without space, other commands, extra trailing text) — all matched the expected behaviour. Full TUI verification (reload + Tab on `/become-persona `) deferred to Joachim — surface in the hand-off.
+- 2026-07-03 — TUI footer status row now shows the persona's `## Title:` after the name (`👤 <name> — <title>`, falling back to `👤 <name>` when the line is missing or unreadable). Added a small `loadPersonaTitle(personaName)` helper that reads `<name>/persona.md` once and runs an anchored regex (`/^## Title:\s*(.+?)\s*$/m`) to extract the title; the helper deliberately does *not* fold into `loadPersonaContent` (Title is metadata for the footer, not prompt content). Source diff: ~22 lines (helper + handler call swap). Doc updates: `persona-loader.md` § 1 Scope bullet, § 4 step 9 amended + new step 10 (helper walkthrough), § 8 step 4 amended to assert the title appears, new § 8 step 10 (Title-fallback smoke test). README: `What it does` + `Behavior on success` + `TUI footer status row` code example + the post-bullet sentence. Smoke-tested via Node extraction of all 12 titles + the no-title + missing-file fallbacks (regex matches every persona file, returns `""` for both fallback paths). Full TUI verification (reload + visual footer check) deferred to Joachim — surface in the hand-off. **Resolved 2026-07-03 (later in the same session):** the `sysadmin/` directory was renamed to `Alan/`, and the new `common.md` rule "directory name == `## Name:` field" prevents the `👤 sysadmin — Sysadmin` redundancy from recurring. Status row now reads `👤 Alan — Sysadmin` for that persona.
+- 2026-07-03 — Added TUI footer status row showing the active persona (`👤 <Name>` via `ctx.ui.setStatus("persona", ...)`). Source: 8-line addition in the `/become-persona` handler — `if (ctx.hasUI) ctx.ui.setStatus("persona", ...)`. Doc: README `What it does`, `Behavior on success`, new `TUI footer status row` Hooks subsection, `Limitations` cross-reload row, and `Source-line index` rewrite to retire the brittle line-number pattern (option (b) from open work D-9/D-10); `persona-loader.md` § 1 Scope, new § 4 step 9 status-row walkthrough, new § 5 row, new § 9 row, § 10 rephrased "State does not survive reload" to record the persistence-rejection rationale (multi-terminal clobber), § 8 smoke-test step 4 + new step 9. **Iteration note**: first pass sketched persistence via `~/.pi/agent/.persona-state.json` + `session_start` handler to give the status row reload-survival; Joachim pivoted mid-change because he keeps multiple Pi sessions open in different terminals and a single global slot would clobber across them. Final design: status row only, no persistence, lifetime tied to extension instance. Closes the `Reload-persistence` line of `Open Work` (rejected, with rationale recorded in § 10). Closes D-9/D-10 (source-line index rot — retired the brittle pattern).
 
 ## Open Work
 
@@ -167,13 +176,12 @@ feature or bug fix lands.)
 requests. Move to `## Change Log` when work begins; close with a
 "closes: <issue>" tag.)
 
-- **Reload-persistence** — see `## Known Issues` row 1. Spec the
-  change in `persona-loader.md` § 1 + § 4 + § 10 first; then
-  implement. Depends on Joachim's sign-off on the
-  `~/.pi/agent/.persona-state.json` location.
-- **Status command** — see `## Known Issues` row 6. Depends on
-  reload-persistence for the "what was the last `/become-persona`"
-  query to be useful.
+- **Status command** — see `## Known Issues` row 6 (was row 6 in
+  the prior session; renumber if needed). Depends on a way to query
+  "what was the last `/become-persona`", which now requires either a
+  module-level inspection helper or wiring back to the (rejected)
+  persistence file. Joachim keeps multiple Pi sessions open, so any
+  query mechanism must be per-session, not file-backed.
 - **Warn when `common.md` is missing** — see `## Known Issues`
   row 4. Small change; do this first as a warm-up.
 - **Switch diagnostics to `ctx.ui.notify` where possible** —
@@ -190,21 +198,9 @@ requests. Move to `## Change Log` when work begins; close with a
   deviation per his cardinal rule) or some other post-log
   mechanism. Design call needed before touching; bundle in a
   separate small commit.
-- **Residual drifts from cycle #3 verification (D-9, D-10, D-11)**
-  — navigational polish; not in the doc-close commit. Logged
-  here so the next session picks them up:
-  - **D-9 / D-10** — README "Source-line index" lists five
-    rows with stale line numbers (`pendingPersonaPrompt` at
-    line 7, `loadPersonaContent` 9–53, etc.) — actual lines
-    are ≥60 higher after the per-project tier landed. Same
-    problem in README "Module-level state: pendingPersonaPrompt"
-    paragraph which still references `persona-loader.ts:4`.
-    Fix candidates: (a) update the line numbers and accept the
-    rot, or (b) retire the brittle pattern and replace with a
-    pointer to `git grep 'function |^const |^let '` or similar.
-    (b) is the long-term fix; needs Joachim's call.
-  - **D-11** — README + `persona-loader.md` "Files" tables
-    don't catalog `<cwd>/.personas/<persona>/project.md`, the
-    file the loader creates. The README does describe the
-    file's behaviour elsewhere; this is just the missing
-    catalog row. Small add, mechanical.
+- **Residual drift from cycle #3 verification (D-11)**
+  — README + `persona-loader.md` "Files" tables don't catalog
+  `<cwd>/.personas/<persona>/project.md`, the file the loader
+  creates. The README does describe the file's behaviour
+  elsewhere; this is just the missing catalog row. Small add,
+  mechanical.

@@ -3,6 +3,7 @@ import type {
   ExtensionAPI,
   ExtensionCommandContext,
   ExtensionContext,
+  SessionStartEvent,
 } from "@earendil-works/pi-coding-agent";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -118,6 +119,49 @@ function loadProjectPersonaMemory(personaName: string): PersonaLoadResult {
   return { content, created };
 }
 
+// Reads the `## Title:` line from `<name>/persona.md`. Returns the trimmed
+// title text, or "" if the line is missing or the file is unreadable. Used
+// to label the TUI footer status row; the value is metadata for the footer,
+// not prompt content, so it lives in its own helper rather than as another
+// field on PersonaLoadResult.
+function loadPersonaTitle(personaName: string): string {
+  const personaPath = path.join(os.homedir(), ".pi", "agent", "personas", personaName, "persona.md");
+  try {
+    if (!fs.existsSync(personaPath)) {
+      return "";
+    }
+    const content = fs.readFileSync(personaPath, "utf-8");
+    const match = content.match(/^## Title:\s*(.+?)\s*$/m);
+    return match ? match[1] : "";
+  } catch (err) {
+    console.error(`[persona-loader] failed to read title for "${personaName}":`, err);
+    return "";
+  }
+}
+
+// Builds autocomplete items for the persona picker. Each item carries:
+// - `value` and `label`: the directory name (the loader's runtime identifier;
+//   matches the `## Name:` field per `common.md`).
+// - `description`: the persona's `## Title:` line, rendered as a secondary
+//   column in the dropdown. Empty when the line is missing or unreadable, in
+//   which case the dropdown falls back to a name-only display for that row.
+//
+// Used by both `getArgumentCompletions` (the natural-trigger path that fires
+// when the user types a letter) and the custom autocomplete provider
+// registered in `session_start` (the Tab path that fires immediately on
+// `/become-persona ` or on Tab-with-arg). Both paths render the same shape
+// so the dropdown looks identical regardless of how it was triggered.
+function listPersonaCompletions(prefix: string): Array<{ value: string; label: string; description?: string }> {
+  const personas = listPersonas();
+  const filtered = personas.filter(p => p.toLowerCase().startsWith(prefix.toLowerCase()));
+  return filtered.map(p => {
+    const title = loadPersonaTitle(p);
+    return title
+      ? { value: p, label: p, description: title }
+      : { value: p, label: p };
+  });
+}
+
 function listPersonas(): string[] {
   const personasDir = path.join(os.homedir(), ".pi", "agent", "personas");
   try {
@@ -136,11 +180,8 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("become-persona", {
     description: "Switch to a persona profile",
     getArgumentCompletions: (prefix: string) => {
-      const personas = listPersonas();
-      const filtered = personas.filter(p => p.toLowerCase().startsWith(prefix.toLowerCase()));
-      return filtered.length > 0
-        ? filtered.map(p => ({ value: p, label: p }))
-        : null;
+      const items = listPersonaCompletions(prefix);
+      return items.length > 0 ? items : null;
     },
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const personaName = args.trim();
@@ -168,11 +209,76 @@ export default function (pi: ExtensionAPI) {
       // Store for before_agent_start to pick up.
       pendingPersonaPrompt = result.content;
 
+      // Show active persona in the TUI footer (same lifetime as the staged prompt).
+      // Format: `👤 <name> — <title>` when the persona's `## Title:` line is
+      // present (see loadPersonaTitle), `👤 <name>` when it is missing or
+      // unreadable.
+      if (ctx.hasUI) {
+        const title = loadPersonaTitle(cleanName);
+        const statusText = title ? `👤 ${cleanName} — ${title}` : `👤 ${cleanName}`;
+        ctx.ui.setStatus("persona", statusText);
+      }
+
       ctx.ui.notify(`Switched to persona: ${cleanName}`, "info");
       if (result.created) {
         ctx.ui.notify(`Initialised project memory at .personas/${cleanName}/`, "info");
       }
     },
+  });
+
+  // Register a custom autocomplete provider so Tab on `/become-persona` (with
+  // or without an argument) shows the persona dropdown immediately, rather
+  // than routing to file completion. Pi's built-in `CombinedAutocompleteProvider`
+  // routes Tab on slash-command-with-arg to file completion by design
+  // (see `handleTabCompletion` in @earendil-works/pi-tui), which meant the
+  // existing `getArgumentCompletions` only fired on natural triggers (typing a
+  // letter). The wrapper below intercepts `/become-persona` patterns before the
+  // built-in sees them, returns `listPersonaCompletions(argPrefix)` items, and
+  // otherwise delegates so non-persona slash commands and file paths are
+  // unaffected.
+  pi.on("session_start", (_event: SessionStartEvent, ctx: ExtensionContext) => {
+    ctx.ui.addAutocompleteProvider((current) => ({
+      async getSuggestions(lines, cursorLine, cursorCol, options) {
+        const line = lines[cursorLine] ?? "";
+        const beforeCursor = line.slice(0, cursorCol);
+        // Match `/become-persona` followed by whitespace and an optional
+        // non-whitespace prefix. The trailing `$` ensures we only match when
+        // the cursor sits inside the argument (no extra trailing text);
+        // anything else falls through to the built-in provider.
+        const match = beforeCursor.match(/^\/become-persona[ \t]+(\S*)$/);
+        if (!match) {
+          return current.getSuggestions(lines, cursorLine, cursorCol, options);
+        }
+        const argPrefix = match[1];
+        const items = listPersonaCompletions(argPrefix);
+        if (items.length === 0) {
+          return null;
+        }
+        return { prefix: argPrefix, items };
+      },
+      applyCompletion(lines, cursorLine, cursorCol, item, prefix) {
+        return current.applyCompletion(lines, cursorLine, cursorCol, item, prefix);
+      },
+      // Override the built-in's shouldTriggerFileCompletion for the
+      // `/become-persona<ws>` pattern. The built-in (`CombinedAutocompleteProvider`
+      // in @earendil-works/pi-tui) checks `textBeforeCursor.trim().includes(" ")`
+      // — the `.trim()` strips the trailing space after a slash command, so
+      // `/become-persona ` looks like `/become-persona` (no space) and the
+      // built-in returns `false`. The editor's `requestAutocomplete` then
+      // returns early without firing the autocomplete request, and Tab on
+      // `/become-persona ` shows nothing. We match the un-trimmed text here
+      // and return `true` so the request fires; `getSuggestions` above then
+      // produces the persona dropdown. Scoped to our command so we don't
+      // change behaviour for other slash commands.
+      shouldTriggerFileCompletion(lines, cursorLine, cursorCol) {
+        const currentLine = lines[cursorLine] ?? "";
+        const beforeCursor = currentLine.slice(0, cursorCol);
+        if (/^\/become-persona[ \t]/.test(beforeCursor)) {
+          return true;
+        }
+        return current.shouldTriggerFileCompletion?.(lines, cursorLine, cursorCol) ?? true;
+      },
+    }));
   });
 
   // Apply persona prompt before every agent start. The prompt is staged in
