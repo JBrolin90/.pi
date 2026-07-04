@@ -22,6 +22,19 @@ persona's markdown bundle onto the next system prompt. Concretely it:
   working directory; the helper also `writeFileSync`s an empty
   `project.md` there). All `*.md` files in the per-project dir are read,
   sorted alphabetically, on every `/become-persona`.
+- Prepends an `# Active Persona: <Name>` banner at the very top of the
+  persona prompt and appends a closing `# Active Persona Confirmation`
+  block at the very bottom (after the Memory Guidelines footer). The
+  opening banner focuses on the *name* (`**You are <Name>** ...
+  superseding any prior persona identity`); the closing confirmation
+  focuses on the *behaviour frame* (`your role, behaviour, and accepted
+  task scope are defined by your current persona`). Together they
+  suppress the two halves of the conversation-history pattern-match the
+  model builds in long sessions — first the prior persona's identity
+  claims leak through ("Who are you?" → prior name), then the prior
+  persona's behaviour patterns (refusing out-of-character tasks after
+  the switch). Both banners are sourced from the `personaName` argument,
+  not from disk. See § 4 step 5, § 5 row 2, § 10 row 6.
 - Appends a "Memory Guidelines" footer pointing the agent at three
   paths — `<name>/memory.md` (cross-project),
   `<cwd>/.personas/<name>/project.md` (per-project), and `<cwd>/AGENT.md`
@@ -134,15 +147,20 @@ The non-obvious decisions, in order of appearance.
      return whatever was read so far; does not propagate to the outer
      try.
 
-3. **Strict concatenation order.** `common.md` → persona profile →
-   persona memory → per-project tier (`<cwd>/.personas/<name>/*.md`,
-   sorted alphabetically) → Memory Guidelines footer. The footer is
-   appended inside the function rather than by the hook so it travels
-   as part of the same prompt payload and is identical regardless of
-   which hook fires. Keeping the footer last positions the CRITICAL
-   update instruction closest to the agent's *current* behaviour — i.e.
-   the rules of engagement come after the role, so the agent processes
-   them as the most recent context.
+3. **Strict concatenation order.** Identity assertion (loader-prepended
+   in `loadPersonaContent`, see step 5) → `common.md` → persona profile
+   → persona memory → per-project tier (`<cwd>/.personas/<name>/*.md`,
+   sorted alphabetically) → Memory Guidelines footer → Identity
+   confirmation (closing reminder, loader-appended, see step 5). The
+   opening assertion is the first content the model sees inside the
+   persona append, before any `common.md` text, so the new identity is
+   established before the role definition and the shared guidelines.
+   The closing confirmation is the very last persona-flavoured content
+   before the model begins generating, so it lands on top of
+   conversation-history pattern-match weight from the prior persona.
+   The Memory Guidelines footer rides inside `loadPersonaContent` (not
+   the hook) so it is identical regardless of which hook fires; the
+   closing confirmation rides the same path for the same reason.
 
 4. **Per-project tier helper** (`loadProjectPersonaMemory`). The
    helper encapsulates everything outside the three global files:
@@ -156,43 +174,59 @@ The non-obvious decisions, in order of appearance.
    see step 2 for why it deliberately is *not* folded into the outer
    try in `loadPersonaContent`.
 
-5. **Empty string on missing `persona.md`.** If `persona.md` is absent
+5. **Identity assertion prepended at the top.** The loader prepends a
+   `# Active Persona: <personaName>` banner at the very start of
+   `extraPrompt`, before any disk read happens and before any other
+   content is appended. The banner carries an explicit `**You are
+   <personaName>** ... superseding any prior persona identity
+   established through earlier conversation in this session` line so
+   the model reads "I am <Name>" as the first persona-flavored content
+   in its system prompt. This counters conversation-history
+   pattern-match in long sessions — the loader cannot fully suppress
+   this with disk-only changes (the model sees the entire conversation
+   thread including prior "I am Y" answers to "Who are you?"), so the
+   assertion makes the freshly-staged identity salient. The banner is
+   unconditional: it ships on every successful `/become-persona`
+   regardless of which sources are present, and is discarded only when
+   the function returns the empty `""` (see step 7).
+
+6. **Empty string on missing `persona.md`.** If `persona.md` is absent
    the function logs a `console.warn` and returns `""` *immediately*, even
    if `memory.md` exists. A persona without a role definition is not a
    persona; silently keeping the memory would mask the misconfiguration.
    The handler treats `""` as "not found" and notifies accordingly.
 
-6. **`personaName.replace(/['"`]/g, "")`** defensively strips wrapping
+7. **`personaName.replace(/['"`]/g, "")`** defensively strips wrapping
    quotes. The slash-command parser sometimes preserves literal quotes from
    the input line, and a typo like `/become-persona 'Marcus '` should not
    fail just because the user fat-fingered a quote.
 
-7. **Tab-completion is a case-insensitive prefix match against
+8. **Tab-completion is a case-insensitive prefix match against
    `listPersonas()`**, returning `null` (not `[]`) when nothing matches.
    Per the extension API contract, `null` lets pi fall back to its own
    completion, which is the correct behaviour when no persona starts with
    the prefix the user has typed. Each item's `description` carries the
-   persona's `## Title:` line (via `listPersonaCompletions`, step 7b),
+   persona's `## Title:` line (via `listPersonaCompletions`, step 8b),
    so the dropdown renders `name — title` rows.
 
-8. **`return { systemPrompt: event.systemPrompt + pendingPersonaPrompt }`.**
+9. **`return { systemPrompt: event.systemPrompt + pendingPersonaPrompt }`.**
    Returning the whole prompt — not a delta — is required by the hook's
    contract; pi replaces its own systemPrompt with whatever object is
    returned. The order (existing first, persona second) matches the README
    spec and is deliberate: appending after pi's own preamble keeps
    pi-managed content authoritative.
 
-7b. **`listPersonaCompletions(prefix)` helper.** Reads every persona's
-    `## Title:` line in one pass via `loadPersonaTitle` (step 10) and
+8b. **`listPersonaCompletions(prefix)` helper.** Reads every persona's
+    `## Title:` line in one pass via `loadPersonaTitle` (step 11) and
     returns a list of `{ value, label, description? }` items ready for
     pi's autocomplete API. Used by both `getArgumentCompletions` (the
     natural-trigger path that fires when the user types a letter after
-    `/become-persona `) and the custom provider registered in step 7c
+    `/become-persona `) and the custom provider registered in step 8c
     (the Tab path that fires immediately). Keeping both paths routed
     through one helper guarantees the dropdown looks identical regardless
     of how it was triggered.
 
-7c. **Custom autocomplete provider for Tab-immediate persona list.**
+8c. **Custom autocomplete provider for Tab-immediate persona list.**
     Pi's built-in `CombinedAutocompleteProvider.handleTabCompletion`
     routes Tab on slash-command-with-arg to file completion, not the
     command's `getArgumentCompletions`. To make Tab on `/become-persona `
@@ -227,20 +261,20 @@ The non-obvious decisions, in order of appearance.
     `requestAutocomplete` only consults `shouldTriggerFileCompletion`
     when `options.force === true`; natural triggers pass `force=false`.)
 
-9. **Status row via `ctx.ui.setStatus`.** The loader owns one footer
-   slot keyed `"persona"`. On every successful `/become-persona` the
-   loader calls `ctx.ui.setStatus("persona", "👤 <name> — <title>")`
-   *iff* `ctx.hasUI` is true, so the footer is visible in TUI and RPC
-   modes but silently skipped in print/JSON modes. The Title is read
-   from `<name>/persona.md`'s `## Title:` line via the `loadPersonaTitle`
-   helper (step 10); when that line is missing or the file is unreadable,
-   the format falls back to `👤 <name>`. The slot is never cleared by
-   the loader; it disappears implicitly when the extension instance is
-   torn down (`/reload`, end of session) because the framework releases
-   the key with the instance. Other extensions wanting to extend the
-   footer should pick a different key.
+10. **Status row via `ctx.ui.setStatus`.** The loader owns one footer
+    slot keyed `"persona"`. On every successful `/become-persona` the
+    loader calls `ctx.ui.setStatus("persona", "👤 <name> — <title>")`
+    *iff* `ctx.hasUI` is true, so the footer is visible in TUI and RPC
+    modes but silently skipped in print/JSON modes. The Title is read
+    from `<name>/persona.md`'s `## Title:` line via the `loadPersonaTitle`
+    helper (step 11); when that line is missing or the file is unreadable,
+    the format falls back to `👤 <name>`. The slot is never cleared by
+    the loader; it disappears implicitly when the extension instance is
+    torn down (`/reload`, end of session) because the framework releases
+    the key with the instance. Other extensions wanting to extend the
+    footer should pick a different key.
 
-10. **`loadPersonaTitle` helper.** Reads `<name>/persona.md` once, runs
+11. **`loadPersonaTitle` helper.** Reads `<name>/persona.md` once, runs
     a single anchored regex (`/^## Title:\s*(.+?)\s*$/m`) to extract the
     `## Title:` line, and returns the trimmed title text — or `""` if
     the file is absent, unreadable, or has no Title line. The helper
@@ -264,6 +298,8 @@ The non-obvious decisions, in order of appearance.
 | Unknown persona name | handler | `ctx.ui.notify('Persona "<name>" not found', 'error')` and returns. |
 | No argument provided to `/become-persona` | handler | Lists available personas via `ctx.ui.notify`, returns. |
 | `~/.pi/agent/personas/` unreadable | `listPersonas` | Returns `[]`; downstream the user sees an empty persona list. |
+| `personaName` is a non-empty string but produces an empty prompt (e.g. trailing whitespace, quotes left after a malformed stripping) | `loadPersonaContent` | Returns `""`; handler notifies `Persona "<name>" not found`. The identity assertion is also discarded in this case (it lives in `extraPrompt`, which the empty-prompt return path throws away). |
+| The model answers as a prior persona after a switch | Runtime (model-side) | Not a loader failure. See `## Known issues` row 6 (identity-assertion mitigates but does not fully eliminate the conversation-history pattern-match path). |
 
 Diagnostics from `loadPersonaContent` go to `console.error` / `console.warn`
 rather than `ctx.ui.notify` because they can fire before the UI handler runs
@@ -332,10 +368,17 @@ and follows the smoke-test recipe in `extensions/persona-loader/README.md`.
 6. Tab on `/become-persona M` — the dropdown should appear with the
    two `M`-prefixed personas (`Marcus`, `Maya`) and their titles.
 7. Trigger an agent turn (any prompt). The next system prompt should now
-   contain, in order: pi's default preamble, the `common.md` body, the
-   `persona.md` body, the `memory.md` body, the per-project tier
-   (every `*.md` under `<cwd>/.personas/<name>/`, sorted), and the
-   Memory Guidelines footer.
+   contain, in order: pi's default preamble, the loader-prepended
+   `# Active Persona: Marcus` banner with the `**You are Marcus** ...
+   superseding any prior persona identity` line, the `common.md` body,
+   the `persona.md` body, the `memory.md` body, the per-project tier
+   (every `*.md` under `<cwd>/.personas/<name>/`, sorted), the Memory
+   Guidelines footer, and the closing `# Active Persona Confirmation`
+   block reaffirming the new identity at the bottom. The opening
+   `# Active Persona:` banner must be the first persona-flavored
+   content in the system prompt; the closing confirmation must be
+   the last persona-flavored content before the model begins
+   generating.
 8. Run `/become-persona` with no argument — the toast should list
    available personas.
 9. Run `/become-persona DoesNotExist` — should toast a red error.
@@ -350,6 +393,27 @@ and follows the smoke-test recipe in `extensions/persona-loader/README.md`.
     footer should show `👤 <name>` with no em-dash and no trailing
     whitespace. Restore the `## Title:` line and re-run `/become-persona`
     to confirm the title returns to the footer.
+13. (Identity assertion after a switch) Run `/become-persona Marcus`,
+    then `/become-persona Vera`, then ask the agent a "Who are you?"
+    prompt (or any prompt that elicits a self-identification). The
+    agent's first response should name `Vera`, not `Marcus`, and should
+    not paraphrase a prior "I am Marcus" answer that was given under
+    the previous `/become-persona Marcus` turn. If the agent answers
+    "Marcus" instead, the `# Active Persona:` banner has not done its
+    job for this session and the symptom is a model-side limitation
+    (see § 10 row 6) — the user-facing workaround is `/new` or
+    `/compact` to clear conversation-history pattern-match.
+14. (Behaviour-frame assertion after a switch) Run `/become-persona
+    Marcus`, then `/become-persona Vera`, then ask the agent to do a
+    task that is in-character for `Marcus` (e.g. "implement a C++
+    function that …"). The agent should attempt the task (it is now
+    the implementation engineer), not refuse as Vera would ("I only
+    write tests, hand this off to Marcus"). The closing
+    `# Active Persona Confirmation` block in the persona prompt is the
+    loader-side mitigation for this behaviour-frame pattern-match;
+    if the agent still acts as Vera on out-of-character tasks, the
+    symptom is a model-side limitation (see § 10 row 6) and the
+    user-facing workaround is `/new` or `/compact`.
 
 No scratch files are produced during verification; nothing to clean up.
 
@@ -416,6 +480,35 @@ No scratch files are produced during verification; nothing to clean up.
   `withFileTypes` so symlinks to directories will be enumerated as
   subdirectories; the loader does not `realpath` them. In practice the
   personas directory is user-managed so this is a low-risk caveat.
+- **Conversation-history pattern-match can override a fresh persona.** In
+  long sessions the model can pattern-match a prior persona's "I am X"
+  answer to a "Who are you?" prompt that was asked before a persona
+  switch, and continue answering "X" even after the loader has staged
+  a fresh prompt that names the new persona as the active identity. The
+  loader-side mitigation is the `# Active Persona: <Name>` banner
+  prepended at the top of `extraPrompt` (see § 4 step 5): the
+  explicit `**You are <Name>** ... superseding any prior persona
+  identity` line makes the freshly-staged identity salient. This is
+  loader-level mitigation, not a guarantee — for adversarial cases
+  (very long sessions with repeated "Who are you?" prompts under
+  multiple personas), the user-facing workarounds are `/new` (clear
+  the conversation), `/compact` (summarise away the prior persona
+  answers), or `/reload` (re-stage the persona from scratch).
+- **System-prompt authority is high-priority, not absolute — it blurs
+  with context length.** Joachim observed (2026-07-03) that even a
+  correctly-staged persona prompt loses authority as the surrounding
+  conversation history accumulates: the system prompt is high-priority
+  but not absolute, and in long sessions the accumulated context
+  "blurs" the persona framing's attention weight, independent of any
+  specific prior-persona pattern-match. This is an *orthogonal*
+  failure mode to the row above — token-volume dilution rather than
+  per-turn pattern-match. The closing `# Active Persona Confirmation`
+  block (see § 4 step 5) partially offsets blur by giving the persona
+  framing the most recent tokens in the system prompt; full immunity
+  still requires `/compact` (compress the context) or `/new` (clear
+  it) once the session grows past the model's effective attention
+  span. This row is a model-side observation, not a loader
+  limitation — the loader cannot directly reduce context length.
 
 ---
 

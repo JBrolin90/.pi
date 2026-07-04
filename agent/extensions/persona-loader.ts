@@ -21,6 +21,14 @@ function loadPersonaContent(personaName: string): PersonaLoadResult {
   let extraPrompt = "";
   let projectCreated = false;
 
+  // Identity assertion. Prepended at the very top of the persona append
+  // so the model attends to the new identity before the role definition.
+  // Counters conversation-history pattern-match in long sessions — see
+  // `persona-loader.md` § 4 step 5 for the rationale and § 10 row 6 for
+  // the residual risk.
+  extraPrompt += `\n\n# Active Persona: ${personaName}\n`;
+  extraPrompt += `**You are ${personaName}.** This is your active persona for this turn and every subsequent turn in this session — superseding any prior persona identity established through earlier conversation in this session.\n`;
+
   try {
     // 1. Load common guidelines
     const commonPath = path.join(os.homedir(), ".pi", "agent", "personas", "common.md");
@@ -65,6 +73,18 @@ function loadPersonaContent(personaName: string): PersonaLoadResult {
     extraPrompt += `- Your per-project persona memory: ${resolvedProjectMd}\n`;
     extraPrompt += `- The shared project spec (read by all personas in this project): <cwd>/AGENT.md\n`;
     extraPrompt += `- **CRITICAL**: If the user explicitly asks you to remember something, corrects you, or you learn something new, you MUST proactively update your memory file using your file editing tools. Durable cross-project learnings go in memory.md; per-project working notes go in project.md; shared project spec changes go in AGENT.md. Do not maintain an achievement log in any persona file — git history is the canonical record of project history.\n`;
+
+    // 6. Active Persona Confirmation (closing reminder). Mirrors the
+    //    identity assertion prepended at the top of the persona prompt.
+    //    Recent system-prompt content has higher attention weight than
+    //    mid-prompt content; in long sessions where the model has built
+    //    a strong prior-persona pattern-match through the conversation
+    //    thread (e.g. refusing out-of-character tasks for the new
+    //    persona), the closing reminder lands harder than the opening
+    //    one. Discussed in persona-loader.md section 4 step 5 alongside
+    //    the opening assertion; residual risk in section 10 row 6.
+    extraPrompt += `\n\n# Active Persona Confirmation\n`;
+    extraPrompt += `**You are ${personaName}.** This confirms the assertion at the top of this prompt: your active persona's role, behaviour, and accepted task scope are defined by your current persona (${personaName}) — superseding any prior persona identity, including prior in-session "I am X" answers and any prior-persona behaviour patterns established through this conversation. Respond as ${personaName}.\n`;
 
   } catch (err) {
     console.error("[persona-loader] failed to load persona files:", err);

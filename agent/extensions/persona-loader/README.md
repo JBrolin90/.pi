@@ -10,8 +10,9 @@ A pi extension that lets the user switch the agent's role at runtime by loading 
 
 ## What it does
 
-The extension reads the global persona bundle and, on first adopt in a given working directory, lazily initialises a per-project memory tier for the active persona. On every `/become-persona`, four sources are concatenated into the system prompt in this order:
+The extension reads the global persona bundle and, on first adopt in a given working directory, lazily initialises a per-project memory tier for the active persona. On every `/become-persona`, an identity-assertion banner is prepended and four sources are concatenated into the system prompt in this order:
 
+0. **`# Active Persona: <name>` banner** (loader-prepended, unconditional). A one-line `**You are <name>** ... superseding any prior persona identity established through earlier conversation in this session` assertion. Gives the model an unambiguous, attention-grabbing identity statement before any other content so it attends to the new identity rather than pattern-matching a prior persona from conversation history in long sessions.
 1. `~/.pi/agent/personas/common.md` — shared guidelines that apply to **every** persona.
 2. `~/.pi/agent/personas/<name>/persona.md` — the role definition.
 3. `~/.pi/agent/personas/<name>/memory.md` — cross-project working notes, preferences, and accumulated knowledge for this persona.
@@ -200,6 +201,7 @@ Things you might want to change for your own fork:
 - **`memory.md` content is the persona's view of truth.** Because the extension tells the agent to "proactively update your memory file" on corrections, the memory file can drift. Review it periodically.
 - **No concurrency safety** on `pendingPersonaPrompt`. Fine for single-agent use; would need locking for multi-agent setups.
 - **The "CRITICAL" memory-update instruction is unconditional.** It is appended on every persona switch regardless of whether the user wants an updateable persona. If you want a read-only persona, you would need to fork the extension to suppress the footer.
+- **Conversation-history pattern-match can override a fresh persona in long sessions.** In a long-running session where the user has previously asked the model "Who are you?" under one persona (and the model answered "I am X"), a subsequent `/become-persona Y` correctly stages Y's content but the model can still answer "X" on the next "Who are you?" by pattern-matching the prior conversation over the freshly-staged identity. The loader's mitigation is the `# Active Persona:` banner prepended at the top of every `/become-persona` — it makes the new identity salient. For adversarial cases (very long sessions, repeated "Who are you?" under multiple personas), the user-facing workarounds are `/new` (clear the conversation), `/compact` (summarise away the prior persona answers), or `/reload` (re-stage the persona from scratch).
 
 ## Files
 
