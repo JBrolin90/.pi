@@ -19,6 +19,15 @@
           }
         },
         {
+          "id": "ornith:35b",
+          "name": "Ornith 35B",
+          "reasoning": true,
+          "input": ["text"],
+          "compat": {
+            "supportsStrictMode": true
+          }
+        },
+        {
           "id": "gemma4-12b-local:latest",
           "name": "Gemma 4 12B (tools + thinking)",
           "reasoning": true,
@@ -28,6 +37,14 @@
           }
         },
         { "id": "gemma4-26b-a4b-8k" },
+        { "id": "gemma4:31b" },
+        {
+          "id": "gemma4-31b-tools",
+          "name": "Gemma 4 31B (tools, tuned)",
+          "reasoning": true,
+          "input": ["text"],
+          "compat": { "supportsStrictMode": true }
+        },
         { "id": "gemma4:latest" },
         {
           "id": "llama3.1:8b",
@@ -107,6 +124,26 @@
           "compat": {
             "supportsStrictMode": true
           }
+        }
+      ]
+    },
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "api": "openai-completions",
+      "apiKey": "$OPENROUTER_API_KEY",
+      "compat": {
+        "supportsDeveloperRole": false,
+        "supportsReasoningEffort": false
+      },
+      "models": [
+        {
+          "id": "meta-llama/llama-3.3-70b-instruct",
+          "name": "Llama 3.3 70B Instruct (OpenRouter)",
+          "reasoning": false,
+          "input": ["text"],
+          "contextWindow": 131072,
+          "maxTokens": 16384,
+          "cost": { "input": 0.1, "output": 0.32, "cacheRead": 0, "cacheWrite": 0 }
         }
       ]
     }

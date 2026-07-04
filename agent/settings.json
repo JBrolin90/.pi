@@ -1,16 +1,25 @@
 {
   "lastChangelogVersion": "0.80.3",
-  "defaultProvider": "minimax",
+  "defaultProvider": "opencode-go",
   "theme": "dark",
-  "defaultModel": "MiniMax-M3",
+  "defaultModel": "qwen3.7-plus",
   "enabledModels": [
     "ollama/gemma4-26b-a4b-8k",
     "llama.cpp/gemma-4-12b-it-qat-q4_0",
     "minimax/MiniMax-M3",
     "openrouter/minimax/minimax-m3",
-    "ollama/ornith:9b"
+    "ollama/ornith:9b",
+    "ollama/ornith:35b",
+    "ollama/gemma4:31b",
+    "opencode-go/minimax-m3",
+    "opencode-go/kimi-k2.6",
+    "opencode-go/glm-5.2",
+    "opencode-go/qwen3.7-plus",
+    "opencode-go/deepseek-v4-pro",
+    "opencode-go/kimi-k2.7-code",
+    "opencode-go/mimo-v2.5-pro"
   ],
-  "defaultThinkingLevel": "minimal",
+  "defaultThinkingLevel": "high",
   "hideThinkingBlock": false,
   "packages": [
     "npm:@juicesharp/rpiv-ask-user-question",
