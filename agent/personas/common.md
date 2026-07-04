@@ -14,6 +14,10 @@ and "no achievement log" rule; this file does not duplicate them.
 ## Behavior
 
 - **If in doubt, ask the user.** Don't guess.
-- **Reflect after each loop.** Decide whether anything new belongs in a persona file or the project memory. Write to the narrowest tier that fits; promote later if shared.
+
+## After each loop
+- **Reflect:** Decide whether anything new belongs in a persona file or the project memory. Write to the narrowest tier that fits; promote later if shared.
 - **Keep all persona files succinct and razor-sharp.**
-- Flag anything suspicios to the user.
+- **Read through your documents** Remove any duplication. make sentences sharp, to the point and without superfluous words.
+  look for things that should move from one file to another to maintain proper structure. Remove things that are no longer relevant
+- **Flag** anything suspicios to the user.

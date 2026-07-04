@@ -4,50 +4,41 @@
 
 ### Documentation Standard — Per-Module Implementation Description
 
-For every C/C++/etc. module I implement, ship a per-module
-implementation description markdown file **next to the implementation,
-not at the project root**, following this fixed 10-section layout.
-Established in the `sqlcpp` project (2026-06); applies to any future
-project that uses a module-style file layout. File path:
-`src/<name>.md` (same directory as the `.cpp`).
+For every C/C++/etc. module, ship `src/<name>.hpp`,
+`src/<name>.cpp`, and `src/<name>.md` together (a three-file
+triplet). Established in the `sqlcpp` project (2026-06); applies
+to any future project with a module-style file layout. The
+`<name>.md` is the per-module description; the `<name>.hpp` and
+`<name>.cpp` are code-only (see the cardinal rule below).
 
-**The cardinal rule (added 2026-07-02): code carries no comments,
-the `<name>.md` carries all of them.** Every module ships as a
-**three-file triplet with the same basename and three different
-extensions: `<name>.hpp`, `<name>.cpp`, `<name>.md`**. The
-`.hpp`/`.cpp` contain code only — no `//` or `/* */` comments, no
-API docstrings, no inline section markers, no `TODO` notes, no
-license headers. Every piece of documentation that used to live
-inline in the code (API contract on declarations, "why this code
-looks like this" rationale on statements, navigational section
-markers, `TODO` notes) is **moved into the `<name>.md`**. The
-`.md` is the canonical documentation surface; the code is the
-canonical behaviour. When the two disagree, the code wins, but
-the `.md` must be brought into agreement in the same commit.
+**Cardinal rule (2026-07-02): code carries no comments, the
+`<name>.md` carries all of them.** The `.hpp` and `.cpp` are
+code-only: no `//` or `/* */` comments, no API docstrings, no
+inline section markers, no `TODO` notes, no license headers.
+All rationale that used to live inline (API contract on
+declarations, "why this code looks like this" on statements,
+navigational section markers, `TODO`s) moves into the `.md`.
+The `.md` is canonical for "why"; the code is canonical for
+"what". When the two disagree, fix the `.md` in the same
+commit — never by adding an inline comment.
 
-**Why this rule exists.** Before 2026-07-02 the inline comments
-in `.cpp`/`.hpp` and the rationale in `<name>.md` were
-duplicating each other (e.g. `result_set.cpp`'s codecvt
-deprecation note was repeated verbatim in `result_set.md` § 4.2).
-The duplication was a maintenance burden: any change to the
-rationale had to be made in two places, and the two would drift.
-Consolidating into the `.md` makes the `.md` single-source-of-
-truth for "why" and the code single-source-of-truth for "what".
+**Why this rule exists.** Pre-2026-07-02 inline comments and
+`<name>.md` rationale duplicated each other and drifted (e.g.
+`result_set.cpp`'s `codecvt` deprecation note was repeated
+verbatim in `result_set.md` § 4.2). Consolidating into `.md`
+made the duplication impossible.
 
-**Stale-comment mitigation.** Because comments are no longer next
-to the code, they can drift silently when the code is edited.
-The mitigation is a discipline rule, not a tool:
+**Stale-comment mitigation** (discipline, not a tool):
 
-- **Every code change ships with a `.md` update in the same
-  commit** when the change affects rationale, defaults,
-  error-handling behaviour, or contracts. Mechanical changes
-  (whitespace, naming) do not require a `.md` update.
-- **When reviewing a `.cpp`/`.hpp` diff, also review the
-  matching `<name>.md`** for staleness. The `.md` is treated as
-  load-bearing as the code itself.
-- If a future reader finds code that disagrees with the `.md`,
-  the code wins — but the discrepancy is fixed by updating the
-  `.md`, never by adding an inline comment to the code.
+- Every code change that affects rationale, defaults, error
+  handling, or contracts ships with a `.md` update in the same
+  commit. Mechanical changes do not.
+- The matching `<name>.md` is reviewed alongside any
+  `.cpp`/`.hpp` diff; it is treated as load-bearing as the
+  code.
+- If a reader finds code that disagrees with the `.md`, the
+  code wins — fix the discrepancy by updating the `.md`, never
+  by adding an inline comment.
 
 **The 10 sections, in order:**
 
@@ -75,41 +66,36 @@ The mitigation is a discipline rule, not a tool:
    (rationale, "this is the X case", section markers like
    `// 1. Column count.`) moves into a numbered subsection
    here. Code snippets may appear where prose is insufficient.
-5. **Error handling** — every error path: who throws what, the
-   exception type, the literal message format quoted, and how
-   the caller surfaces it.
+5. **Error handling** — every error path: exception type,
+   literal message format quoted, how the caller surfaces it.
 6. **Header hygiene + Dependencies** — the literal include list
-   (header includes X, header does NOT include Y) and a dependency
-   table (where, why). Together these are the cross-module
-   dependency contract; load-bearing for the build graph.
-7. **Verification** — exact build command, exact smoke-test recipe,
-   expected output (or eyeball-check criteria when byte-comparison
-   is platform-fragile), and confirmation that all scratch files
-   were deleted.
-8. **Coding conventions** — which local style rules the code
-   follows, cross-referencing the project's conventions doc. This
-   is where deviations from the spec get justified.
-9. **Known issues** — caveats, deprecations, edge cases a future
-   reader will hit. If a vendor library is deprecated and we
-   silenced the warning locally, this is where that lands. Any
+   and a dependency table (where, why). Source of truth for the
+   build graph.
+7. **Verification** — exact build command, exact smoke-test
+   recipe, expected output (or eyeball-check criteria when
+   byte-comparison is platform-fragile), confirmation scratch
+   files were deleted.
+8. **Coding conventions** — local style rules, with
+   cross-references to the project's conventions doc. Where
+   deviations from the spec get justified.
+9. **Known issues** — caveats, deprecations, edge cases. Any
    `TODO` that used to live as an inline comment in the `.cpp`
    (e.g. `TODO(utf8cpp)`) is recorded here with its full
    rationale.
-10. **Where to read next** — links to the spec, the task brief,
-    sibling modules, the system design, and the next module to
-    build.
+10. **Where to read next** — spec, task brief, sibling modules,
+    system design, next module to build.
 
-(Original was 11 sections; 6 and 7 merged into one combined
-section because they're the same concern — what the module
-includes and where.)
+(Sections 6 and 7 were merged from an earlier 11-section layout
+— they are the same concern: what the module includes and
+where.)
 
 **Style:**
-- Describes the code that was written, not the contract. The spec
-  lives elsewhere; the per-module doc complements it. Link out
-  for the "what", explain the "why" inline.
-- One short intro paragraph (before section 1) names the doc, the
+- Describes the code that was written, not the contract. The
+  spec lives elsewhere; the per-module doc complements it. Link
+  out for the "what", explain the "why" inline.
+- One short intro paragraph (before § 1) names the doc, the
   module, the spec it complements, and what this doc focuses on.
-  Don't summarise the whole module here.
+  Don't summarise the module.
 - Readable > clever. ASCII bullets. Prose over tables when prose
   is clearer. Code blocks for the bare public API (§ 3) and for
   non-obvious implementation snippets (§ 4). Cross-references
@@ -118,22 +104,16 @@ includes and where.)
   write it retroactively to keep the layout consistent.
 - The companion task brief
   (`src/<name>{_,-}implementation_instruction{s,}.md`) is read
-  *before* writing any code and is cited in § 10. Once the module
-  ships, the brief, the `.cpp`, the `.hpp`, and the `.md` all sit
-  side by side in the same directory.
-- **Never duplicate rationale between the `.md` and the
-  `.cpp`/`.hpp`.** If a piece of "why" lives in the `.md` § 4,
-  it does not appear in the `.cpp`. The `.cpp` is allowed to
-  look sparse — that's the point.
+  before writing any code and cited in § 10. Once the module
+  ships, the brief, the `.cpp`, the `.hpp`, and the `.md` all
+  sit side by side in the same directory.
 
 **Anti-patterns:**
-- **Any comment in `.cpp` or `.hpp`.** This includes API
-  docstrings (`/** ... */`), section markers (`// 1. Column
-  count.`), inline rationale (`// SQLWCHAR is 2 bytes on Linux
-  because ...`), trailing `// end of function` markers, and
-  license headers. All of it goes in the `.md` instead.
-  License headers, if needed, belong in a separate
-  `LICENSE*` file at the project root, not in each `.hpp`.
+- **Any comment in `.cpp` or `.hpp`.** Includes API docstrings
+  (`/** ... */`), section markers, inline rationale, `// end of
+  function`, and license headers. All goes in the `.md`.
+  License headers, if needed, belong in a separate `LICENSE*`
+  file at the project root.
 - Description at the project root or work-area root (it belongs
   next to the `.cpp`).
 - Duplicating the contract in the description. If the spec says
@@ -142,19 +122,12 @@ includes and where.)
 - Omitting the "non-responsibilities" subsection in § 1. A
   description without it reads as advertising, not engineering.
 - Listing dependencies that aren't used (or omitting ones that
-  are). The table in § 6/7 is the source of truth.
-- Adding a "see inline comment in X.cpp" cross-reference in the
-  `.md` — there are no inline comments in the `.cpp` to point
-  at.
+  are). The table in § 6 is the source of truth.
 
-**Reference:** `sqlcpp`'s `src/result_set.md` (2026-07-02,
-post-migration) follows this layout 1:1 and is a good template
-for a small, pure module. Larger modules (e.g.
-`src/odbc_statement.md`) keep the same 10 headings but expand
-§ 4 (Implementation walkthrough) with one numbered subsection
-per former inline section marker (e.g. § 4.1 Column count step,
-§ 4.2 Column metadata step, § 4.3 Cell buffer init, § 4.4 Row
-loop, § 4.5 Progressive read).
+**Reference:** `sqlcpp/src/result_set.md` (2026-07-02) follows
+this layout 1:1. Larger modules (`sqlcpp/src/odbc_statement.md`)
+keep the 10 headings but expand § 4 with one subsection per
+former inline section marker.
 
 ### Brief vs. reality — documenting deviations
 
@@ -178,11 +151,11 @@ behaviour — the implementation must:
    implementation.** Future work in the same family should
    follow the proven pattern, not the brief's original recipe.
 4. **Flag the spec / brief typo for the design agent.** That's
-   not the implementation's job. The per-module `.md`
-   documents the gap; that is the canonical record (the
-   project's `AGENT.md` no longer carries an achievement log
-   per the new system, so the per-module `.md` is the only
-   place future-me will find the deviation).
+   not the implementation's job. The per-module `.md` documents
+   the gap with the (a)/(b)/(c) deviation list; that is the
+   canonical record. AGENT.md's achievement log mentions
+   deviations at a high level but does not duplicate the
+   detail.
 
 The "trust the code" rule applies even to the brief's smoke-test
 recipe: if the brief's three smoke tests don't catch the
@@ -192,8 +165,8 @@ is a starting point, not the contract.
 
 ## Coding Style
 
-- **C++ variables: always camelCase.** Applies to locals,
-  parameters, members, globals. No snake_case.
+- **C++ variables: always camelCase.** Locals, parameters,
+  members, globals. No snake_case.
 - **Design principles, always:** **Separation of Concerns** (one
   concern per unit), **DRY** (extract shared behavior into a
   named abstraction, never copy-paste), **Single Responsibility
@@ -224,8 +197,7 @@ is a starting point, not the contract.
   session. See `sqlcpp/interactive_mode.cpp` for the canonical
   REPL example.
 - **No comments in `.cpp` or `.hpp`.** Cardinal rule of the
-  documentation standard (above). If a comment feels necessary,
-  it goes in `<name>.md` instead. The only acceptable "comment"
+  documentation standard (above). The only acceptable "comment"
   in code is the `// namespace sqlcpp` close marker, and even
   that is purely a grep helper, not documentation.
 
