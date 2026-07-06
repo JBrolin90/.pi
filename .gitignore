@@ -12,3 +12,6 @@ agent/auth.json
 
 # Editor config (personal, not project-level)
 .vscode/
+
+# Per-project persona memory (local, not shared)
+.personas/
