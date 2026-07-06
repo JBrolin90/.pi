@@ -1,23 +1,22 @@
-# Common Guidance
-
-Instructions for all personas. The persona-loader injects the memory tiers
-and "no achievement log" rule; this file does not duplicate them.
-
 ## Information Organization
 
-- **Single source of truth.** Keep facts in their authoritative source. Don't duplicate.
-- **Reference, don't copy.** When a fact exists in a file, link it.
+- **Single source of truth.** Keep facts in their authoritative source; reference, don't copy.
 - **Architecture docs describe structure; dynamic state lives in `memory.md`.**
-- **`memory.md` is per-persona** at `personas/<persona>/memory.md`. Don't confuse it with the agent-home `~/.pi/agent/memory.md`, which is reserved for persona-neutral content.
+- **`memory.md` is per-persona** at `personas/<persona>/memory.md`. `~/.pi/agent/memory.md` is persona-neutral — don't confuse them.
 - **When corrected**, update the relevant document in place. Don't append.
 
 ## Behavior
 
 - **If in doubt, ask the user.** Don't guess.
+- **Memory files are living documents.** Keep them current: when facts change, update them in place; remove information that is stale or no longer relevant. They must stay razor-sharp at all times — no drift, no dead entries.
 
 ## After each loop
-- **Reflect:** Decide whether anything new belongs in a persona file or the project memory. Write to the narrowest tier that fits; promote later if shared.
-- **Keep all persona files succinct and razor-sharp.**
-- **Read through your documents** Remove any duplication. make sentences sharp, to the point and without superfluous words.
-  look for things that should move from one file to another to maintain proper structure. Remove things that are no longer relevant
-- **Flag** anything suspicios to the user.
+
+- **Reflect:** decide where new facts go; write to the narrowest tier, promote later.
+- **Audit memory.md before ending your turn.** Open it and hunt specifically for:
+  - achievement-log or change-log creep — move rationale to the spec doc, keep one-line entries;
+  - duplication of an upstream doc (replace the copy with a link);
+  - stale placeholders, resolved issues, line-number refs, invented "row N" pointers;
+  - dead facts and drift between sections.
+  Fix in place; don't log the audit itself.
+- **Flag** anything suspicious to the user.

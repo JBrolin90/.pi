@@ -10,13 +10,13 @@ A pi extension that lets the user switch the agent's role at runtime by loading 
 
 ## What it does
 
-The extension reads the global persona bundle and, on first adopt in a given working directory, lazily initialises a per-project memory tier for the active persona. On every `/become-persona`, an identity-assertion banner is prepended and four sources are concatenated into the system prompt in this order:
+The extension reads the global persona bundle and, on first adopt in a given working directory, lazily initialises a per-project memory tier for the active persona. On every `/become-persona`, an identity-assertion banner is prepended, four sources are concatenated **verbatim with no loader-injected section headers between them** (each source carries its own top-level heading), and a Memory Guidelines footer plus a closing identity confirmation are appended, in this order:
 
 0. **`# Active Persona: <name>` banner** (loader-prepended, unconditional). A one-line `**You are <name>** ... superseding any prior persona identity established through earlier conversation in this session` assertion. Gives the model an unambiguous, attention-grabbing identity statement before any other content so it attends to the new identity rather than pattern-matching a prior persona from conversation history in long sessions.
 1. `~/.pi/agent/personas/common.md` — shared guidelines that apply to **every** persona.
 2. `~/.pi/agent/personas/<name>/persona.md` — the role definition.
 3. `~/.pi/agent/personas/<name>/memory.md` — cross-project working notes, preferences, and accumulated knowledge for this persona.
-4. `<cwd>/.personas/<name>/*.md` — the per-project tier. On first adopt in a given working directory the loader auto-creates `<cwd>/.personas/<name>/` and an empty `project.md`, then reads every `*.md` in that directory (sorted alphabetically) under `# Project Memory (filename.md)` banners with the literal filename in place of `filename.md`.
+4. `<cwd>/.personas/<name>/*.md` — the per-project tier. On first adopt in a given working directory the loader auto-creates `<cwd>/.personas/<name>/` and an empty `project.md`, then reads every `*.md` in that directory (sorted alphabetically) and concatenates it verbatim — each file carries its own headings, and empty files contribute nothing (so the auto-created empty `project.md` stays silent until you add content).
 
 It also injects a "Memory Guidelines" footer (verbatim, four bullets) pointing the agent at three paths and instructing it to update the appropriate tier depending on what it has learned:
 
@@ -138,7 +138,7 @@ Optional. Re-read on every `/become-persona` call (no caching), so edits take ef
 
 ### Per-project tier (`<cwd>/.personas/<name>/*.md`)
 
-On the first `/become-persona <name>` invocation in a given working directory, the loader auto-creates `<cwd>/.personas/<name>/` and writes an empty `project.md` there. On every subsequent `/become-persona <name>` (in the same cwd or any other cwd where the directory already exists) every `*.md` file under that directory is read (sorted alphabetically) and injected into the prompt under `# Project Memory (filename.md)` banners with the literal filename in place of `filename.md`.
+On the first `/become-persona <name>` invocation in a given working directory, the loader auto-creates `<cwd>/.personas/<name>/` and writes an empty `project.md` there. On every subsequent `/become-persona <name>` (in the same cwd or any other cwd where the directory already exists) every `*.md` file under that directory is read (sorted alphabetically) and concatenated into the prompt verbatim — each file is expected to carry its own headings, and empty files contribute nothing (so the auto-created empty `project.md` is silent until you add content).
 
 **Use it for** notes specific to *this* project that don't belong in the persona's cross-project `memory.md` — architecture notes, project-specific glossary, in-flight decisions, etc.
 
