@@ -22,6 +22,7 @@ records the loader's runtime identifier, which is the same value.
 | Theo    | Org Designer            | `Theo/`     | Team & Organization Builder                | yes              | none                                                 | 2026-07-03   |
 | Maya    | Loader Engineer         | `Maya/`     | Persona Loader Maintainer                  | yes              | none                                                 | 2026-07-03   |
 | Sue     | Python Developer        | `Sue/`      | Senior Python Developer Role               | yes              | none                                                 | 2026-07-03   |
+| Stella  | Purchase Researcher     | `Stella/`   | Purchase Research Specialist               | yes              | none                                                 | 2026-07-06   |
 | Hazel   | Smart Home              | `Hazel/`    | Home Assistant Expert Role                 | yes              | none                                                 | 2026-07-03   |
 | Vera    | Test Engineer           | `Vera/`     | Verification & Test Engineer               | yes              | none                                                 | 2026-07-03   |
 | Idun    | LLM Steward             | `Idun/`     | Local LLM Connections Steward              | yes              | none                                                 | 2026-07-03   |

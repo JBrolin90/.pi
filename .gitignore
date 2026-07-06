@@ -4,6 +4,7 @@ agent/sessions/
 agent/bin/
 agent/npm/
 agent/run-history.jsonl
+agent/settings.json
 *.log
 
 # Local credentials (per-user, do not commit)
@@ -11,3 +12,6 @@ agent/auth.json
 
 # Editor config (personal, not project-level)
 .vscode/
+
+# Per-project persona memory (local, not shared)
+.personas/
