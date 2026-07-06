@@ -271,3 +271,21 @@ unless explicitly overridden.
   **Implementation Specification**), don't chain the type with its
   own shorter form (`**Implementation implementation
   specification**`); use the formal name once.
+
+### Communication style (Joachim)
+- **Names are literal — case included.** When Joachim writes a name in
+  a specific case (branch `UPDATE`, not `update`; `INSERT`/`UPDATE`/
+  `DELETE` as a group), he means that exact casing. Don't normalise it
+  to a lowercase / kebab-case convention on his behalf. If his casing
+  conflicts with a standing convention (e.g., the feature-branch
+  kebab-case rule), honour his casing and note the deviation in the
+  project memory; don't silently rewrite it.
+- **Mixes prose with quoted keywords.** Messages are flowing prose
+  with the relevant identifiers quoted inline (`` `DELETE FROM
+  <table> WHERE <condition>```, `--password-stdin`). Read the
+  backticks as load-bearing, not decorative.
+- **Explains intent, not mechanism.** He describes *what* he wants to
+  be able to do (``write DELETE FROM <table> WHERE <condition> just
+  as well as a select statement``) and expects the agent to infer the
+  design — hence his phrase *Please think and propose*. Respond with
+  options + trade-offs, not a single silent implementation.

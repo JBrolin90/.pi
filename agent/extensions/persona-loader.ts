@@ -34,16 +34,14 @@ function loadPersonaContent(personaName: string): PersonaLoadResult {
     const commonPath = path.join(os.homedir(), ".pi", "agent", "personas", "common.md");
     if (fs.existsSync(commonPath)) {
       const commonContent = fs.readFileSync(commonPath, "utf-8");
-      extraPrompt += `\n\n# Shared Persona Guidelines (common.md)\n`;
-      extraPrompt += `${commonContent.trim()}\n`;
+      extraPrompt += `\n\n${commonContent.trim()}\n`;
     }
 
     // 2. Load persona profile
     const personaPath = path.join(os.homedir(), ".pi", "agent", "personas", personaName, "persona.md");
     if (fs.existsSync(personaPath)) {
       const personaContent = fs.readFileSync(personaPath, "utf-8");
-      extraPrompt += `\n\n# Persona Profile (${personaName})\n`;
-      extraPrompt += `${personaContent.trim()}\n`;
+      extraPrompt += `\n\n${personaContent.trim()}\n`;
     } else {
       console.warn(`[persona-loader] persona.md not found for "${personaName}"`);
       return { content: "", created: false };
@@ -53,8 +51,7 @@ function loadPersonaContent(personaName: string): PersonaLoadResult {
     const memoryPath = path.join(os.homedir(), ".pi", "agent", "personas", personaName, "memory.md");
     if (fs.existsSync(memoryPath)) {
       const memoryContent = fs.readFileSync(memoryPath, "utf-8");
-      extraPrompt += `\n\n# Persona Memory (memory.md)\n`;
-      extraPrompt += `${memoryContent.trim()}\n`;
+      extraPrompt += `\n\n${memoryContent.trim()}\n`;
     }
 
     // 4. Per-project persona memory tier: <cwd>/.personas/<name>/. Auto-creates
@@ -127,9 +124,8 @@ function loadProjectPersonaMemory(personaName: string): PersonaLoadResult {
     for (const name of mdFiles) {
       const filePath = path.join(projectDir, name);
       const fileContent = fs.readFileSync(filePath, "utf-8").trim();
-      content += `\n\n# Project Memory (${name})\n`;
       if (fileContent.length > 0) {
-        content += `${fileContent}\n`;
+        content += `\n\n${fileContent}\n`;
       }
     }
   } catch (err) {

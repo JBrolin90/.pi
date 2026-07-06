@@ -35,6 +35,17 @@ persona's markdown bundle onto the next system prompt. Concretely it:
   persona's behaviour patterns (refusing out-of-character tasks after
   the switch). Both banners are sourced from the `personaName` argument,
   not from disk. See § 4 step 5, § 5 row 2, § 10 row 6.
+- Injects **no per-source section/provenance headers**. The four sources
+  (`common.md`, `persona.md`, `memory.md`, the per-project tier) are
+  concatenated verbatim and each is expected to carry its own top-level
+  heading; the loader adds only the opening identity banner, the Memory
+  Guidelines footer, and the closing identity confirmation. Rationale:
+  the loader injects *pure instructions for the loaded persona*, not
+  meta-commentary about where content came from — a header like `# Shared
+  Persona Guidelines (common.md)` informed the model "these apply to
+  every persona" (the same class of informing as the old `Applies to
+  all personas` H1 that was removed from `common.md`). See § 4 step 3
+  and § 10 row 8.
 - Appends a "Memory Guidelines" footer pointing the agent at three
   paths — `<name>/memory.md` (cross-project),
   `<cwd>/.personas/<name>/project.md` (per-project), and `<cwd>/AGENT.md`
@@ -99,7 +110,7 @@ export default function (pi: ExtensionAPI): void
 ```
 
 `pi` is pi's extension host. The default export is invoked once when pi
-loads the extension; it registers one command and one event hook and returns
+loads the extension; it registers one command and two event hooks and returns
 nothing. Everything else in the file is module-private.
 
 ### Non-obvious choices
@@ -152,6 +163,12 @@ The non-obvious decisions, in order of appearance.
    → persona memory → per-project tier (`<cwd>/.personas/<name>/*.md`,
    sorted alphabetically) → Memory Guidelines footer → Identity
    confirmation (closing reminder, loader-appended, see step 5). The
+   loader injects **no per-source section headers**: each source file is
+   concatenated verbatim and is expected to carry its own top-level
+   heading (`persona.md` and `memory.md` do; `common.md` is intentionally
+   headingless — see § 10 row 8). The only loader-injected headings are
+   the opening `# Active Persona:` banner, the `# Memory Guidelines`
+   footer, and the closing `# Active Persona Confirmation` block. The
    opening assertion is the first content the model sees inside the
    persona append, before any `common.md` text, so the new identity is
    established before the role definition and the shared guidelines.
@@ -188,7 +205,7 @@ The non-obvious decisions, in order of appearance.
    assertion makes the freshly-staged identity salient. The banner is
    unconditional: it ships on every successful `/become-persona`
    regardless of which sources are present, and is discarded only when
-   the function returns the empty `""` (see step 7).
+   the function returns the empty `""` (see step 6).
 
 6. **Empty string on missing `persona.md`.** If `persona.md` is absent
    the function logs a `console.warn` and returns `""` *immediately*, even
@@ -206,7 +223,7 @@ The non-obvious decisions, in order of appearance.
    Per the extension API contract, `null` lets pi fall back to its own
    completion, which is the correct behaviour when no persona starts with
    the prefix the user has typed. Each item's `description` carries the
-   persona's `## Title:` line (via `listPersonaCompletions`, step 8b),
+   persona's `## Title:` line (via `listPersonaCompletions`, step 10),
    so the dropdown renders `name — title` rows.
 
 9. **`return { systemPrompt: event.systemPrompt + pendingPersonaPrompt }`.**
@@ -216,17 +233,17 @@ The non-obvious decisions, in order of appearance.
    spec and is deliberate: appending after pi's own preamble keeps
    pi-managed content authoritative.
 
-8b. **`listPersonaCompletions(prefix)` helper.** Reads every persona's
-    `## Title:` line in one pass via `loadPersonaTitle` (step 11) and
+10. **`listPersonaCompletions(prefix)` helper.** Reads every persona's
+    `## Title:` line in one pass via `loadPersonaTitle` (step 13) and
     returns a list of `{ value, label, description? }` items ready for
     pi's autocomplete API. Used by both `getArgumentCompletions` (the
     natural-trigger path that fires when the user types a letter after
-    `/become-persona `) and the custom provider registered in step 8c
+    `/become-persona `) and the custom provider registered in step 11
     (the Tab path that fires immediately). Keeping both paths routed
     through one helper guarantees the dropdown looks identical regardless
     of how it was triggered.
 
-8c. **Custom autocomplete provider for Tab-immediate persona list.**
+11. **Custom autocomplete provider for Tab-immediate persona list.**
     Pi's built-in `CombinedAutocompleteProvider.handleTabCompletion`
     routes Tab on slash-command-with-arg to file completion, not the
     command's `getArgumentCompletions`. To make Tab on `/become-persona `
@@ -261,20 +278,20 @@ The non-obvious decisions, in order of appearance.
     `requestAutocomplete` only consults `shouldTriggerFileCompletion`
     when `options.force === true`; natural triggers pass `force=false`.)
 
-10. **Status row via `ctx.ui.setStatus`.** The loader owns one footer
+12. **Status row via `ctx.ui.setStatus`.** The loader owns one footer
     slot keyed `"persona"`. On every successful `/become-persona` the
     loader calls `ctx.ui.setStatus("persona", "👤 <name> — <title>")`
     *iff* `ctx.hasUI` is true, so the footer is visible in TUI and RPC
     modes but silently skipped in print/JSON modes. The Title is read
     from `<name>/persona.md`'s `## Title:` line via the `loadPersonaTitle`
-    helper (step 11); when that line is missing or the file is unreadable,
+    helper (step 13); when that line is missing or the file is unreadable,
     the format falls back to `👤 <name>`. The slot is never cleared by
     the loader; it disappears implicitly when the extension instance is
     torn down (`/reload`, end of session) because the framework releases
     the key with the instance. Other extensions wanting to extend the
     footer should pick a different key.
 
-11. **`loadPersonaTitle` helper.** Reads `<name>/persona.md` once, runs
+13. **`loadPersonaTitle` helper.** Reads `<name>/persona.md` once, runs
     a single anchored regex (`/^## Title:\s*(.+?)\s*$/m`) to extract the
     `## Title:` line, and returns the trimmed title text — or `""` if
     the file is absent, unreadable, or has no Title line. The helper
@@ -378,7 +395,12 @@ and follows the smoke-test recipe in `extensions/persona-loader/README.md`.
    `# Active Persona:` banner must be the first persona-flavored
    content in the system prompt; the closing confirmation must be
    the last persona-flavored content before the model begins
-   generating.
+   generating. Additionally, no loader-injected section header should
+   appear between the source bodies — there must be no `# Shared Persona
+   Guidelines`, `# Persona Profile`, `# Persona Memory`, or
+   `# Project Memory` heading; `common.md`'s body should render starting
+   at its own first heading (currently `## Information Organization`,
+   since `common.md` carries no H1 by design).
 8. Run `/become-persona` with no argument — the toast should list
    available personas.
 9. Run `/become-persona DoesNotExist` — should toast a red error.
@@ -429,9 +451,12 @@ No scratch files are produced during verification; nothing to clean up.
   `personaContent`, `memoryContent` — all camelCase, per the project's
   universal rule (see `personas/Marcus/memory.md`).
 - **String concatenation vs. template literals:** template literals are used
-  only where interpolation is needed; plain strings are used for the
-  fixed-shape section banners (`"# Shared Persona Guidelines (common.md)\n"`
-  etc.). Mixed deliberately — readability > consistency.
+  only where interpolation is needed (e.g. the identity banners, which
+  interpolate `personaName`); plain strings are used for the fixed-shape
+  headings (`"# Memory Guidelines\n"`, `# Active Persona Confirmation`).
+  The loader no longer emits any per-source section banners — source
+  files are concatenated verbatim with their own headings. Mixed
+  deliberately — readability > consistency.
 - **Function declarations, not arrow expressions**, for all named helpers.
   This keeps stack traces unambiguous and matches the rest of the
   extension folder.
@@ -509,6 +534,22 @@ No scratch files are produced during verification; nothing to clean up.
   it) once the session grows past the model's effective attention
   span. This row is a model-side observation, not a loader
   limitation — the loader cannot directly reduce context length.
+- **No per-source section headers; `common.md` is headingless.** The
+  loader injects no provenance/section banners (`# Shared Persona
+  Guidelines`, `# Persona Profile`, `# Persona Memory`, `# Project
+  Memory`) between source files — each file is concatenated verbatim
+  and is expected to carry its own top-level heading. `persona.md` and
+  `memory.md` do. `common.md` does **not**: its H1 was removed (Idun,
+  2026-07-04) precisely because the loader previously supplied a
+  `# Shared Persona Guidelines (common.md)` wrapper that double-headed
+  it; once that wrapper was dropped in favour of "pure instructions,
+  no source provenance" (Joachim, 2026-07-04), the common block renders
+  starting at its `## Information Organization` H2. This is intentional
+  (per Joachim's call) — the orphaned H2 is accepted as the new normal
+  rather than re-introducing an H1 in `common.md` (which is content
+  outside the loader's scope). If a future persona author wants a
+  top-level heading on the common block, the fix lives in `common.md`
+  itself, not in the loader.
 
 ---
 
