@@ -2,7 +2,7 @@
   "lastChangelogVersion": "0.80.3",
   "defaultProvider": "opencode-go",
   "theme": "dark",
-  "defaultModel": "qwen3.7-plus",
+  "defaultModel": "glm-5.2",
   "enabledModels": [
     "ollama/gemma4-26b-a4b-8k",
     "llama.cpp/gemma-4-12b-it-qat-q4_0",
