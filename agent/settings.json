@@ -1,8 +1,8 @@
 {
-  "lastChangelogVersion": "0.80.3",
-  "defaultProvider": "opencode-go",
+  "lastChangelogVersion": "0.80.6",
+  "defaultProvider": "minimax",
   "theme": "dark",
-  "defaultModel": "glm-5.2",
+  "defaultModel": "MiniMax-M3",
   "enabledModels": [
     "ollama/gemma4-26b-a4b-8k",
     "llama.cpp/gemma-4-12b-it-qat-q4_0",
@@ -17,13 +17,22 @@
     "opencode-go/qwen3.7-plus",
     "opencode-go/deepseek-v4-pro",
     "opencode-go/kimi-k2.7-code",
-    "opencode-go/mimo-v2.5-pro"
+    "opencode-go/mimo-v2.5-pro",
+    "opencode/north-mini-code-free",
+    "openrouter/cohere/north-mini-code:free",
+    "opencode/mimo-v2.5-free",
+    "opencode/hy3-free",
+    "opencode/nemotron-3-ultra-free",
+    "lmstudio/qwen/qwen3.5-9b",
+    "lmstudio/qwen2.5-coder-3b-instruct"
   ],
   "defaultThinkingLevel": "high",
   "hideThinkingBlock": false,
   "packages": [
     "npm:@juicesharp/rpiv-ask-user-question",
     "npm:pi-json-tools",
-    "npm:pi-web-access"
+    "npm:pi-search-hub",
+    "git:github.com/kostyay/pi-k-excalidraw",
+    "npm:pi-lmstudio"
   ]
 }

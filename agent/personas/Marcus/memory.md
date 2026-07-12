@@ -129,6 +129,23 @@ this layout 1:1. Larger modules (`sqlcpp/src/odbc_statement.md`)
 keep the 10 headings but expand § 4 with one subsection per
 former inline section marker.
 
+### Implementation report — write to disk as part of the workflow
+
+After the implementation is done (all smoke layers pass, all
+`.md` files updated, achievement-log entry written), write an
+implementation report to `docs/<name>.ir.md` alongside the
+implementation specification (`<name>.is.md`) and the design
+spec (`<name>.md`). The report is a factual record of what
+was implemented, what deviations were found, what the smoke
+test results were, and what is still open. It is part of the
+normal workflow for all projects — not a one-off for sqlcpp.
+
+Contents: files modified, deviations (brief said / reality /
+why reality wins), smoke-test outputs (Layer 1/2/3 or
+equivalent), checklist, still-open items. The filename suffix
+is `.ir.md` (implementation report), distinct from `.is.md`
+(implementation specification) and `.md` (module description).
+
 ### Brief vs. reality — documenting deviations
 
 When a task brief turns out to be wrong on a specific point —
@@ -162,6 +179,68 @@ recipe: if the brief's three smoke tests don't catch the
 deviation (because the brief's recipe is for a different
 environment), end-to-end test against a real driver. The brief
 is a starting point, not the contract.
+
+### ODBC driver gotchas (durable, cross-project)
+
+These are driver-behaviour facts, not stylistic preferences —
+every future ODBC wrapping project must honour them or it will
+corrupt data silently. Each is load-bearing; do not re-derive it
+from scratch.
+
+- **`SQLBindParameter` buffers are read at `SQLExecute` time,
+  not at bind time.** The driver pins `ParameterValuePtr` by
+  address and may re-read it on every execute (and on every
+  re-execute after re-bind). The **caller** must keep the bound
+  `std::string` buffers alive until `execute_prepared()` /
+  `SQLExecute` returns. The brief that assumed "the driver
+  typically makes a copy of small values at bind time" is
+  WRONG for `msodbcsql18` (and likely most drivers): it reads
+  the buffer at execute time, so a `do_bind` local that dies
+  before `do_exec` causes the driver to read freed heap — the
+  write goes to the DB as garbage (e.g. `alpha` →
+  `x-gnu/gconv/CP1252.so`). Canonical storage lives in the
+  session/owning object (e.g. `SessionHandles::bound_values`),
+  outliving the bind→exec gap. Worked example + full write-up:
+  `sqlcpp/src/interactive_mode.md` § v1.3 delta — *Parameter-
+  buffer lifetime deviation*; the wrapper contract is in
+  `sqlcpp/src/odbc_statement.md` § v1.3 delta.
+
+- **`SQLWCHAR` on Linux is 2 bytes; the driver always writes
+  2-byte UTF-16 code units into `SQLWCHAR*` buffers regardless of
+  how the app defines `SQLWCHAR`.** Never `#define SQLWCHAR
+  wchar_t` (that corrupts non-ASCII); read the 2-byte units and
+  widen via a helper. `SQLDescribeColW`'s `NameLength` is in
+  characters, not bytes. End-of-data in `SQLGetData` progressive
+  read is the **return code** (`SQL_SUCCESS` = last chunk,
+  `SQL_SUCCESS_WITH_INFO` = more pending), not `strLenOrInd >
+  kBufBytes`. `msodbcsql18` returns `SQL_NO_TOTAL` (-4) for
+  large variable-length data. Worked example: `sqlcpp/src/
+  odbc_statement.md` § 4.1, § 4.5, § 4.7.
+
+- **`SQLFreeStmt(SQL_CLOSE)` after a row loop**, or the next
+  `execute()` / `SQLExecute` on a reused statement handle hits
+  `24000 Invalid cursor state` on `msodbcsql18`. Distinct from
+  `SQL_RESET_PARAMS` (unbinds parameters — call at top of
+  `bind_parameters`). Worked example: `sqlcpp/src/
+  odbc_statement.md` § 4.6.
+
+- **ODBC handles are a strict child-before-parent tree; a REPL /
+  session that caches a statement handle must free it on EVERY
+  connection-teardown path, not just the obvious one.** When the
+  connection is freed while a statement allocated from it is still
+  alive, `SQLFreeHandle(SQL_HANDLE_STMT)` later on the orphaned
+  handle (and any use of it) is undefined. Symptom observed on
+  `msodbcsql18` via unixODBC: a **segfault (exit 139)** when the
+  user changed a connection option (`set`/`database`) which
+  reset `conn`/`env` directly, leaving a cached `prepared_stmt`
+  dangling — the next `exec` crashed. Fix: wherever a cached
+  child handle exists, every place that tears down the parent
+  (`ensure_connected`, the `set`/`database` REPL arms, `do_connect`)
+  must `reset()` the child **first**. Do not assume the brief
+  enumerated every teardown path. Worked example: `sqlcpp/src/
+  interactive_mode.md` § v1.3 delta — *`
+  set` / `database` also reset the prepared statement (segfault
+  fix)*.
 
 ## Coding Style
 
@@ -200,5 +279,11 @@ is a starting point, not the contract.
   documentation standard (above). The only acceptable "comment"
   in code is the `// namespace sqlcpp` close marker, and even
   that is purely a grep helper, not documentation.
+
+## Discipline
+
+- **Never commit without explicit permission.** Do not run
+  `git commit` (or any equivalent that creates a commit) unless
+  the user has explicitly told me to commit. Ask first.
 
 ## People

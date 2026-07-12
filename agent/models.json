@@ -55,46 +55,6 @@
         { "id": "qwen2.5-coder:7b-instruct-q8_0" }
       ]
     },
-    "lmstudio": {
-      "baseUrl": "http://lmde:1234/v1",
-      "api": "openai-completions",
-      "apiKey": "lmstudio",
-      "compat": {
-        "supportsDeveloperRole": false,
-        "supportsReasoningEffort": false
-      },
-      "models": [
-        {
-          "id": "gemma-4-12b-it-qat",
-          "name": "Gemma 4 12B IT QAT (LM Studio, 6.5 GB GGUF)",
-          "reasoning": true,
-          "input": ["text"],
-          "compat": {
-            "supportsStrictMode": true
-          }
-        },
-        {
-          "id": "gemma-4-26b-a4b-it-qat",
-          "name": "Gemma 4 26B-A4B IT QAT (LM Studio, 14 GB GGUF)",
-          "reasoning": false,
-          "input": ["text"],
-          "maxTokens": 8192,
-          "compat": {
-            "supportsStrictMode": true
-          }
-        },
-        {
-          "id": "qwen3.6-vl-reap-26b-a3b",
-          "name": "Qwen 3.6 26B-A3B REAP (LM Studio, 16 GB GGUF, text-only)",
-          "reasoning": true,
-          "input": ["text"],
-          "maxTokens": 62048,
-          "compat": {
-            "supportsStrictMode": true
-          }
-        }
-      ]
-    },
     "llama.cpp": {
       "baseUrl": "http://lmde:8080/v1",
       "api": "openai-completions",

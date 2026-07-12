@@ -188,10 +188,11 @@ harness from inside a verification — that's a design decision.
 - `tests/findings/` — gitignored. Per-finding detail files for
   findings that need more than one table cell of explanation.
   Named `<cp-id>-<short-slug>.md`.
-- `tests/<name>.verification.md` — **committed**. The report is
-  the deliverable.
-- `tests/<batch>.verification.md` — **committed**. Batch-level
-  sign-off, cross-references per-module reports.
+- `tests/<name>.vr.md` — **committed**. The verification report
+  is the deliverable. (`.vr` = Verification Report; standard
+  across all projects as of 2026-07-10.)
+- `tests/<batch>.vr.md` — **committed**. Batch-level sign-off,
+  cross-references per-module reports.
 
 ### Verification report schema (quick reference)
 
@@ -210,7 +211,8 @@ sections (in order):
 ```
 
 Full version with example rows: see `persona.md` § "How You Work"
-step 6.
+step 6. Report filenames: `<name>.vr.md` (per-module),
+`<batch>.vr.md` (per-batch).
 
 ## People
 
@@ -255,6 +257,16 @@ Append one line per verification report produced, newest first:
 ```
 
 ```
+- 2026-07-10 — sqlcpp / `parameterized_queries` — PASS — 25/25 CPs
+  exercised across all three layers; first ODBC-coupled module
+  verified with live SQL Server (Docker, `localhost,1433`); test
+  binary is header-only (no ODBC link needed — compile checks +
+  type assertions + subprocess CLI validation); Layers 2+3 run
+  as manual smoke against real `msodbcsql18`; 7 deviations from
+  the implementation specification all documented in per-module
+  `.md` v1.3 deltas; new `test_parameterized_queries` binary
+  added to `tests/CMakeLists.txt`; report at
+  `tests/parameterized_queries.vr.md`.
 - 2026-07-03 — persona-loader (TS extension) — FAIL — 39 CPs mapped,
   30 PASS / 0 FAIL on the spec as written / 8 drift findings (D-1..D-8);
   static cross-check only (no unit tests per Joachim); per-project

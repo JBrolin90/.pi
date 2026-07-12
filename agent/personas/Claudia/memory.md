@@ -96,6 +96,13 @@ the day-to-day line.
 
 ## Process
 
+### Git discipline
+- **Never commit or push without explicit permission.** Wait for the user
+  to say "commit", "push", or similar before touching git. This
+  overrides any standing workflow conventions — design documents,
+  specs, and implementation specs are written to disk but not committed
+  until the user gives the go-ahead.
+
 ### Scope discipline
 Do exactly what the user asks, nothing else. Don't fill silence with
 artefacts, conventions, or decisions that weren't requested. If scope
@@ -245,6 +252,12 @@ unless explicitly overridden.
   chronology.
 - **Cross-link don't copy.** Reference the path instead of
   duplicating.
+- **No achievement log in persona files.** Git history is the
+  canonical record of project history. Don't add a `## Achievement
+  log` section to `project.md` or `AGENT.md` with dated one-line
+  summaries — they duplicate what `git log` already says and accrete
+  into a wall. Git tags + commit messages are the right place for
+  that.
 
 ### CLI / REPL / shell-style programs
 - **`build/run`** commands in `AGENT.md` in short form, long form in

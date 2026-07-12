@@ -59,7 +59,7 @@ Those details belong in the **Notes** column of your output table, not in the fi
 The canonical format is the contract; if you think the contract loses information, surface that in your notes and propose a `## Klassförslag` amendment in `memory.md`. Do not invent a different format on your own.
 
 Examples:
-- `4520_16_1779291675.pdf` → `2026-05-12_Faktura_-_4520_16_1779291675.pdf`
+- `4520_16_1779291675.pdf` → `2026-05-08_Beslut_-_4520_16_1779291675.pdf` (a Skatteverket beslut, NOT a Faktura)
 - `BeslutForsenAvg_1781083570.pdf` → `2026-06-08_Beslut_-_BeslutForsenAvg_1781083570.pdf`
 - `Slutskattebesked_2025P4_1781083540.pdf` → `2025-12-??_Slutskattebesked_-_Slutskattebesked_2025P4_1781083540.pdf` (date may be embedded — see below)
 - `Kvittens-20260435755.pdf` → `2026-05-08_Kvittens_-_Kvittens-20260435755.pdf`
@@ -72,13 +72,15 @@ Use exactly one of these Swedish tags:
 
 | Tag | When |
 |---|---|
-| `Faktura` | Invoice — outgoing (Sincera Hemservice brand of Sincera Holding AB as sender) or incoming (supplier). Either direction gets the same tag. |
+| `Faktura` | Invoice with credit — outgoing (Sincera Hemservice brand of Sincera Holding AB as sender) or incoming (supplier). Recognised on **fakturadatum** regardless of payment timing. Use this when the document grants short credit (e.g. 30 days) and payment happens later. |
+| `Kvitto` | Kontant receipt — immediate payment at point of sale (cash/card/Apple Pay). Payment date = receipt date; no credit period. Use for retail receipts, ride receipts (Bolt/Uber), booking receipts (Gotogate) where the card is charged immediately. Distinct from `Kvittens` (Skatteverket) and `Bankkvitto` (bank transfer confirmation). |
 | `Kvittens` | Skatteverket receipt after submitting a declaration (moms, arbetsgivar-, rot/rut) |
 | `Beslut` | Skatteverket decision — slutlig skatt, förseningsavgift, omräkning, etc. |
 | `Bankkvitto` | Bank transfer confirmation PDF from Svea Bank / bank.svea.com |
 | `Transaktioner` | Bankgirot transaction CSV (full or skattekonto partial) |
 | `Momsrapport` | VAT-report XLSX template with SKV box numbers |
-| `Löner` | Salary/payroll table (markdown) |
+| `Löner` | Salary/payroll summary table (CSV/markdown) — an index of lönespec slips generated to facilitate Skatteverket declaration. The authoritative date is the **pay-out day** found in the `Sökväg` column filenames (all rows share the same pay-out date), NOT the Intjänandeperiod month and NOT the last day of the pay month. |
+| `Huvudbok` | General-ledger extract XLSX (Sincera Holding AB Huvudbok, `Period YYYYMM`) — Konto/Kontonamn/Ver.serie/Ver.nr/Datum/Belopp/Saldo rows. |
 | `Oklassificerad` | Anything that does not fit. **Stop and ask** — do not guess. |
 
 ### Date extraction — authoritative field per category
@@ -86,12 +88,14 @@ Use exactly one of these Swedish tags:
 | Tag | Authoritative date field | Where to find it |
 |---|---|---|
 | `Faktura` | **Fakturadatum** (NOT förfallodatum, NOT orderdatum) | Top of invoice, usually labelled `Datum:` |
+| `Kvitto` | **Payment date** (= receipt date; the two coincide for kontant receipts) | Date on the receipt — mind the locale format (ES `DD/MM/YYYY`, e.g. `08/07/2026` = 2026-07-08) |
 | `Kvittens` | **Inlämnad** timestamp (date the declaration was received by Skatteverket) | "Inlämnad YYYY-MM-DD HH:MM" near top |
 | `Beslut` | **Beslutsdatum** (decision date) | "Datum" in the Skatteverket header block |
 | `Bankkvitto` | **Transaktionsdatum / Signerad datum** | "Datum:" in the transfer detail block |
 | `Transaktioner` | Use the **Period end date** (second date in the `Period,YYYY-MM-DD,YYYY-MM-DD` preamble), or if no period header exists, the latest transaction date |
 | `Momsrapport` | The `Period YYYYMM` cell value, convert to the **last day of that month** |
-| `Löner` | The first row's `Year-Month` (use the **last day of that month** as the file date) |
+| `Löner` | **Pay-out day** from the `Sökväg` column filenames (e.g. `2026-05-25-Eliana-Lönespec.xls` → 2026-05-25). All rows in a given file share the same pay-out date — verify with `grep -oE 'YYYY-MM-DD'`. Do NOT use Intjänandeperiod, do NOT use last-day-of-month. |
+| `Huvudbok` | Last day of the `Period YYYYMM` (e.g. `Period 202605` → 2026-05-31) |
 | `Oklassificerad` | n/a — surface for Joachim |
 
 If you cannot locate the authoritative date with confidence, do NOT rename. Output a one-line report per such file: `OKLASSIFICERAD: <basename> — kunde inte hitta <field>`. Do not invent a date.
@@ -115,7 +119,7 @@ Table template:
 
 | # | Original | Klass | Date | Proposed name | Confidence | Notes |
 |---|---|---|---|---|---|---|
-| 1 | `4520_16_1779291675.pdf` | Faktura | 2026-05-12 | `2026-05-12_Faktura_-_4520_16_1779291675.pdf` | hög | outgoing, kontorsstädning-style |
+| 1 | `4520_16_1779291675.pdf` | Beslut | 2026-05-08 | `2026-05-08_Beslut_-_4520_16_1779291675.pdf` | hög | Skatteverket beslut, mars 2026 |
 | 2 | `BeslutForsenAvg_1781083570.pdf` | Beslut | 2026-06-08 | `2026-06-08_Beslut_-_BeslutForsenAvg_1781083570.pdf` | hög | förseningsavgift, mars 2026 |
 
 `mv` block (batches only — skip for single-file requests):
@@ -124,7 +128,7 @@ Table template:
 # Run from the inbox cwd
 
 mv "4520_16_1779291675.pdf" \
-   "2026-05-12_Faktura_-_4520_16_1779291675.pdf"
+   "2026-05-08_Beslut_-_4520_16_1779291675.pdf"
 mv "BeslutForsenAvg_1781083570.pdf" \
    "2026-06-08_Beslut_-_BeslutForsenAvg_1781083570.pdf"
 # …

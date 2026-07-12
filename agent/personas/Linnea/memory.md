@@ -32,23 +32,31 @@ See `persona.md` § "v1 Scope" for the full taxonomy and date-extraction rules.
 
 ## Classification Tags (v1)
 
-`Faktura` · `Kvittens` · `Beslut` · `Bankkvitto` · `Transaktioner` · `Momsrapport` · `Löner` · `Oklassificerad`
+`Faktura` · `Kvitto` · `Kvittens` · `Beslut` · `Bankkvitto` · `Transaktioner` · `Momsrapport` · `Löner` · `Huvudbok` · `Oklassificerad`
 
 ## Date Field → Classification Map
 
 | Klass | Authoritative date |
 |---|---|
 | Faktura | Fakturadatum (NOT förfallodatum) |
+| Kvitto | Payment date (= receipt date) |
 | Kvittens | Inlämnad-timestamp |
 | Beslut | Beslutsdatum |
 | Bankkvitto | Transaktionsdatum / Signerad datum |
 | Transaktioner | Period end (or latest transaction date) |
 | Momsrapport | Last day of `Period YYYYMM` |
-| Löner | Last day of `Year-Month` from first row |
+| Löner | Pay-out day from `Sökväg` column filenames (all rows share it) |
+| Huvudbok | Last day of `Period YYYYMM` |
 
 ## Per-Batch Run Notes
 
 (Append one entry per batch run, oldest first. Replace in place when a batch is re-run.)
+
+- **2026-07-09 (single-file rename, after "ja" from Joachim)** — renamed 1 file. Klasser: 1× Faktura. Original basename: `.pdf` (literally a hidden dotfile, no basename). New basename: `2026-07-08_Faktura_-_Carrefour-receipt.pdf`. Spanskt Carrefour-kassakvitto, 110,97 EUR Mastercard contactless, datum `08/07/2026` (ES DD/MM/YYYY) → 2026-07-08. Bokförs som kontorsmaterial (printer toner); övriga livsmedel ej verksamhetsrelaterade. **Two deviations documented below.**
+- **2026-07-09 (run 4b, reclassify Faktura→Kvitto, after "ja" from Joachim)** — renamed 5 files. Klasser: 5× Kvitto. **Origin**: Joachim corrected terminology — in Swedish bokföring, `Faktura` implies credit (booked on fakturadatum regardless of payment), while `Kvitto` = immediate kontant payment where payment date = receipt date. Carrefour/Bolt/Uber/Gotogate are all card-at-point-of-sale → `Kvitto`, not `Faktura`. Taxonomy amended (new `Kvitto` tag added to `persona.md` + `memory.md`; date field = payment date). **Original basenames**: `2026-07-08_Faktura_-_Carrefour-receipt.pdf`, `2026-06-23_Faktura_-_2026-06-23 invoice.bolt.eu.pdf`, `2026-06-23_Faktura_-_invoice.bolt.eu.pdf`, `2025-09-27_Faktura_-_invoice-40-796885441 (1).pdf`, `2026-05-12_Faktura_-_receipt_4949479b-5402-4af5-a15b-7bfe8ad51bcb.pdf`. **New basenames**: `2026-07-08_Kvitto_-_Carrefour-receipt.pdf`, `2026-06-23_Kvitto_-_2026-06-23 invoice.bolt.eu.pdf`, `2026-06-23_Kvitto_-_invoice.bolt.eu.pdf`, `2025-09-27_Kvitto_-_invoice-40-796885441 (1).pdf`, `2026-05-12_Kvitto_-_receipt_4949479b-5402-4af5-a15b-7bfe8ad51bcb.pdf`. Dates unchanged (payment date = receipt date for all 5). Pre-flight OK for alla; 5/5 landade med intakta byte-storlekar.
+- **2026-07-09 (run 5, full v1 batch, after "ja" from Joachim)** — renamed 6 files. Klasser: 1× Faktura, 1× Kvittens, 1× Momsrapport, 2× Löner, 1× Huvudbok. Skipped 1: `2026-05-26 Momsdeklaration.pdf` (skannad bild, saknar textlager, ingen `tesseract` — lämnas tills OCR finns). **Original basenames**: `2026-04-30-Projekt Kompetes I Linköping AB-Faktura( Corregir esta factura del behandlade)( el precio cambio a 387KR.pdf`, `Sincera_Holding_AB_Momsrapport Period 202605.xlsx`, `Kvittens_165590802061.pdf`, `2026-05_Lönespec.csv`, `2023-03_Lönespec.csv`, `Sincera_Holding_AB_Huvudbok Period 202605.xlsx`. **New basenames**: `2026-04-30_Faktura_-_2026-04-30-Projekt Kompetes I Linköping AB-Faktura( Corregir esta factura del behandlade)( el precio cambio a 387KR.pdf`, `2026-05-31_Momsrapport_-_Sincera_Holding_AB_Momsrapport Period 202605.xlsx`, `2026-06-27_Kvittens_-_Kvittens_165590802061.pdf`, `2026-05-25_Löner_-_2026-05_Lönespec.csv`, `2023-03-25_Löner_-_2023-03_Lönespec.csv`, `2026-05-31_Huvudbok_-_Sincera_Holding_AB_Huvudbok Period 202605.xlsx`. **Taxonomy changes this batch**: (a) New `Huvudbok` tag added (general-ledger XLSX, date = last day of `Period YYYYMM`) — Joachim-approved. (b) `Löner` date rule corrected: authoritative date is now **pay-out day from the `Sökväg` column filenames** (all rows share it; verify with `grep -oE 'YYYY-MM-DD'`), NOT last-day-of-month and NOT Intjänandeperiod. Joachim clarified the Lönespec CSVs are an index he generates to facilitate Skatteverket salary declaration. Both rules updated in `persona.md` + `memory.md`. **Errors caught / lessons**: (a) Projekt Kompetes-fakturan skippades i run 3 pga Linneas eget parentesfel — denna gång kördes med basename verbatim och landade (185849 bytes intakt). (b) Löner-datumregeln i persona.md var fel från början (used Intjänandeperiod/last-day-of-month) — skulle ha gett 2026-05-31 resp. 2023-03-31, rätt är 2026-05-25 resp. 2023-03-25 (utbetalningsdag). (c) Joachim sa "three files" men det fanns 7 icke-kanoniska; jag flaggade diskrepansen och processade alla.
+
+- **2026-07-09 (run 6, OCR-rescue single file, after "ja" from Joachim)** — replaced 1 file. Klasser: 1× Kvittens. **Origin**: `2026-05-26 Momsdeklaration.pdf` was skipped in run 5 (skannad bild, saknar textlager). Joachim enabled the `naps2_ocr` extension; OCR med språk `swe` extraherade text och skapade en searchable derivat `…_ocr.pdf`. Innehållet visade sig vara en Skatteverket **Kvittens** för momsdeklaration, Inlämnad **2026-06-26 22:24** av Sugey Brolin (redovisningsperiod Maj 2026, moms att betala 5 728 kr). Filnamnets `2026-05-26` var missvisande (spar-datum) men bevaras verbatim i basename per kanoniskt format; auktoritativt datum 2026-06-26 (Inlämnad) i prefixet. **Action**: deleted scanned original, renamed searchable `_ocr.pdf` → `2026-06-26_Kvittens_-_2026-05-26 Momsdeklaration.pdf` (170472 bytes, textlager bevarat). Joachim valde "Replace with OCR version" (inte keep-both). **Capability note**: `naps2_ocr` tool är nu tillgängligt för skannade PDFer i inboxen — Tesseract-baserat, stöder `swe`+`eng`. Ej längre behov av manuell `tesseract`-installation för framtida skannade dokument.
 
 - **Smoke test (single file, BeslutForsenAvg_1781083570.pdf)** — Linnea correctly classified as `Beslut`, extracted `Beslutsdatum` 2026-06-08, proposed `2026-06-08_Beslut_-_BeslutForsenAvg_1781083570.pdf`. **Errors caught**: (a) `find` recursed into `./copy/` (out of scope), (b) Linnea volunteered an embellished descriptive name (`Skatteverket_Beslut_om_forseningsavgift_625kr_mars_2026`) instead of the canonical Klass+basename format, (c) Linnea offered to move the file to `Behandlade/` unprompted (v2+ work). Persona updated with explicit Scope Boundaries section; reopen /become-persona to pick up.
 - **2026-06-25 (single-file rename, after "ja" from Joachim)** — Successfully renamed `BeslutForsenAvg_1781083570.pdf` → `2026-06-08_Beslut_-_BeslutForsenAvg_1781083570.pdf`. Pre-flight verified source exists + target doesn't + names differ; `mv`; post-flight `ls -la` confirmed intact (146 348 bytes, mtime Jun 10 11:26). Linnea fabricated a "system instruction" attribution for the pre-flight pattern that didn't actually exist in the persona — pattern has now been formalised in `persona.md` § "Rules when executing mv" so it won't need inventing again.
@@ -57,6 +65,14 @@ See `persona.md` § "v1 Scope" for the full taxonomy and date-extraction rules.
 ## Skill Backlog
 
 Out of scope in v1; consolidated in `/home/sincera/Documents/Inbox/Linnea-v2.md` to keep Linnea's prompt lean. Re-add here when v2 starts.
+
+## Documented exceptions to the canonical format
+
+- **Empty / missing basename (2026-07-09, Joachim-approved).** When a source file has no usable basename (e.g. literally `.pdf`), the strict verbatim rule would yield an unhelpful `…_-_.pdf`. Joachim authorised adding a short descriptive basename in that case only. Confined to the empty-basename situation; do NOT generalise to files that already have a real basename. First use: `Carrefour-receipt` for the 2026-07-08 receipt above. If a second case arises, re-confirm rather than assuming the exception extends.
+
+## Terminology lessons
+
+- **`Faktura` vs `Kvitto` (2026-07-09, Joachim-corrected).** In Swedish bokföring `Faktura` implies credit (bokförs på fakturadatum oavsett när betalning sker), while `Kvitto` = kontant betalning där betalningsdatum = kvittodatum. The taxonomy originally had no `Kvitto` tag — only `Kvittens` (Skatteverket declaration receipt) and `Bankkvitto` (bank transfer confirmation). Added a new `Kvitto` tag (payment date as authoritative field) to cover retail/ride/booking receipts with immediate card payment. Distinct from both `Kvittens` and `Bankkvitto`. Locale caveat: mind DD/MM/YYYY (ES) vs YYYY-MM-DD (SE) when reading dates off foreign receipts.
 
 ## Open Questions
 

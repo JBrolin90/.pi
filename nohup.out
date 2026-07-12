@@ -1,0 +1,44 @@
+Nemo-Share-Message: 17:52:51.618: Called "net usershare info" but it failed: 'net usershare' returned error 255: net usershare: cannot open usershare directory /var/lib/samba/usershares. Error Permission denied
+You do not have permission to create a usershare. Ask your administrator to grant you permissions to create a share.
+
+Nemo-Share-Message: 17:53:09.271: Called "net usershare info" but it failed: 'net usershare' returned error 255: net usershare: cannot open usershare directory /var/lib/samba/usershares. Error Permission denied
+You do not have permission to create a usershare. Ask your administrator to grant you permissions to create a share.
+
+Nemo-Share-Message: 17:54:24.464: Called "net usershare info" but it failed: 'net usershare' returned error 255: net usershare: cannot open usershare directory /var/lib/samba/usershares. Error Permission denied
+You do not have permission to create a usershare. Ask your administrator to grant you permissions to create a share.
+
+Nemo-Share-Message: 17:56:45.285: Called "net usershare info" but it failed: 'net usershare' returned error 255: net usershare: cannot open usershare directory /var/lib/samba/usershares. Error Permission denied
+You do not have permission to create a usershare. Ask your administrator to grant you permissions to create a share.
+
+Nemo-Share-Message: 17:57:30.535: Called "net usershare info" but it failed: 'net usershare' returned error 255: net usershare: cannot open usershare directory /var/lib/samba/usershares. Error Permission denied
+You do not have permission to create a usershare. Ask your administrator to grant you permissions to create a share.
+
+Nemo-Share-Message: 17:58:29.867: Called "net usershare info" but it failed: 'net usershare' returned error 255: net usershare: cannot open usershare directory /var/lib/samba/usershares. Error Permission denied
+You do not have permission to create a usershare. Ask your administrator to grant you permissions to create a share.
+
+[thumb_buffer @ 0x55ea844fe100] Changing video frame properties on the fly is not supported by all filters.
+[thumb_buffer @ 0x55ea844fe100] filter context - w: 1266 h: 1346 fmt: 0 csp: unknown range: unknown, incoming frame - w: 1266 h: 1346 fmt: 0 csp: bt709 range: tv pts_time: 8.333333
+Nemo-Share-Message: 17:59:16.788: Called "net usershare info" but it failed: 'net usershare' returned error 255: net usershare: cannot open usershare directory /var/lib/samba/usershares. Error Permission denied
+You do not have permission to create a usershare. Ask your administrator to grant you permissions to create a share.
+
+Nemo-Share-Message: 17:59:29.707: Called "net usershare info" but it failed: 'net usershare' returned error 255: net usershare: cannot open usershare directory /var/lib/samba/usershares. Error Permission denied
+You do not have permission to create a usershare. Ask your administrator to grant you permissions to create a share.
+
+Nemo-Share-Message: 18:01:08.867: Called "net usershare info" but it failed: 'net usershare' returned error 255: net usershare: cannot open usershare directory /var/lib/samba/usershares. Error Permission denied
+You do not have permission to create a usershare. Ask your administrator to grant you permissions to create a share.
+
+Nemo-Share-Message: 18:02:24.878: Called "net usershare info" but it failed: 'net usershare' returned error 255: net usershare: cannot open usershare directory /var/lib/samba/usershares. Error Permission denied
+You do not have permission to create a usershare. Ask your administrator to grant you permissions to create a share.
+
+Nemo-Share-Message: 18:26:08.516: Called "net usershare info" but it failed: 'net usershare' returned error 255: net usershare: cannot open usershare directory /var/lib/samba/usershares. Error Permission denied
+You do not have permission to create a usershare. Ask your administrator to grant you permissions to create a share.
+
+[2:0710/194543.137187:ERROR:dbus/bus.cc:408] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
+LaunchProcess: failed to execvp:
+xdg-settings
+2026-07-10 17:45:45 Loaded main app package /app/resources/obsidian.asar
+Gtk-Message: 19:45:45.440: Failed to load module "xapp-gtk3-module"
+2026-07-10 17:45:45 Checking for update using Github
+2026-07-10 17:45:45 Success.
+2026-07-10 17:45:45 Latest version is 1.12.7
+2026-07-10 17:45:45 App is up to date.
