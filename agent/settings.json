@@ -1,11 +1,12 @@
 {
-  "lastChangelogVersion": "0.80.6",
-  "defaultProvider": "minimax",
+  "lastChangelogVersion": "0.80.7",
+  "defaultProvider": "opencode-go",
   "theme": "dark",
-  "defaultModel": "MiniMax-M3",
+  "defaultModel": "glm-5.2",
   "enabledModels": [
     "ollama/gemma4-26b-a4b-8k",
     "llama.cpp/gemma-4-12b-it-qat-q4_0",
+    "llama.cpp/qwen-3.6-35B-A3B-Q5_K_M",
     "minimax/MiniMax-M3",
     "openrouter/minimax/minimax-m3",
     "ollama/ornith:9b",
@@ -23,8 +24,7 @@
     "opencode/mimo-v2.5-free",
     "opencode/hy3-free",
     "opencode/nemotron-3-ultra-free",
-    "lmstudio/qwen/qwen3.5-9b",
-    "lmstudio/qwen2.5-coder-3b-instruct"
+    "llama-server=http://127.0.0.1:8080//home/joachim/models/gguf/Qwen3.6-35B-A3B-Q5_K_M-clean.gguf"
   ],
   "defaultThinkingLevel": "high",
   "hideThinkingBlock": false,
@@ -33,6 +33,7 @@
     "npm:pi-json-tools",
     "npm:pi-search-hub",
     "git:github.com/kostyay/pi-k-excalidraw",
-    "npm:pi-lmstudio"
+    "npm:pi-lmstudio",
+    "npm:pi-llama-cpp"
   ]
 }

@@ -84,6 +84,18 @@
           "compat": {
             "supportsStrictMode": true
           }
+        },
+        {
+          "id": "qwen-3.6-35B-A3B-Q5_K_M",
+          "name": "Qwen3.6-35B-A3B Q5_K_M (llama.cpp, partial GPU, Q5_K_M, ~14 t/s)",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 4096,
+          "maxTokens": 8192,
+          "compat": {
+            "supportsStrictMode": true,
+            "thinkingFormat": "qwen-chat-template"
+          }
         }
       ]
     },
