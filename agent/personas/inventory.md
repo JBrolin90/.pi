@@ -30,6 +30,7 @@ records the loader's runtime identifier, which is the same value.
 | Claudia | System Architect        | `Claudia/`  | System Design Specialist                   | yes              | none                                                 | 2026-07-03   |
 | Linnea  | Bookkeeper              | `Linnea/`   | Swedish Document Classification Specialist | yes              | none                                                 | 2026-07-03   |
 | Diane   | Executive Assistant     | `Diane/`    | Executive Assistant Role                   | yes (empty body) | none                                                 | 2026-07-03   |
+| Erik    | VS Codium Specialist    | `Erik/`     | VS Codium Specialist Role                  | yes              | none                                                 | 2026-07-06   |
 
 **Notes:**
 
