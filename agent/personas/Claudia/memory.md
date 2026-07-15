@@ -109,8 +109,11 @@ artefacts, conventions, or decisions that weren't requested. If scope
 is ambiguous, ask.
 
 Especially applies to:
-- **Persona scaffolding** — designing files, conventions, and project
-  notes for new team members is collaboration territory.
+- **Persona scaffolding** — see `common.md` § *Persona Architecture*
+  for the global-persona + project-workspace pattern and Ada's
+  ownership rule. TL;DR: don't pre-create project-workspace
+  directories for upcoming personas; Ada scaffolds the global
+  persona first.
 - **Implementation specs / implementation specifications** — detailed specs hide the
   reasoning behind decisions; the user can't evaluate one they didn't
   ask for.

@@ -5,6 +5,27 @@
 - **`memory.md` is per-persona** at `personas/<persona>/memory.md`. `~/.pi/agent/memory.md` is persona-neutral — don't confuse them.
 - **When corrected**, update the relevant document in place. Don't append.
 
+## Persona Architecture
+
+- **Global personas, project workspaces.** Each persona has a
+  global definition at `~/.pi/agent/personas/<name>/`
+  (`persona.md` + `memory.md`). When a persona works on a
+  project, they keep a per-project workspace at
+  `<project>/.personas/<name>/project.md` for project-scoped
+  notes, achievement context, and project-specific decisions.
+  The global persona is the unit; the project workspace is the
+  persona's working area in that project. *Not* "project
+  personas" — only global personas exist; project workspaces
+  are how global personas materialise in a project.
+
+- **Persona ownership.** **Ada** is the Persona Architect for
+  all projects (per `~/.pi/agent/personas/inventory.md`).
+  Adding, removing, or formally modifying a persona goes
+  through Ada. Don't pre-create project-workspace directories
+  for upcoming personas — wait for Ada to scaffold the global
+  persona; the project's working area follows when the global
+  persona is hired into that project.
+
 ## Behavior
 
 - **If in doubt, ask the user.** Don't guess.
