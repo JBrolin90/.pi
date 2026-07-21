@@ -4,8 +4,8 @@ Authoritative list of every persona on disk at `~/.pi/agent/personas/<name>/`.
 Maintained by **Ada** (the persona specialist) on every add / modify / remove.
 This file is loader-agnostic — the persona-loader does not read it; it exists
 for human readers and for cross-references between personas. Reference it
-from `Ada/persona.md` and `common.md` so the agent picks it up on
-`/become-persona`.
+from `Ada/persona.md` so the agent picks it up on
+`/become-persona Ada`.
 
 The two metadata fields `## Name:` and `## Title:` in each `persona.md` (see
 `Ada/persona.md` § *Structural Conventions → The Name and Title fields*)
@@ -31,6 +31,7 @@ records the loader's runtime identifier, which is the same value.
 | Linnea  | Bookkeeper              | `Linnea/`   | Swedish Document Classification Specialist | yes              | none                                                 | 2026-07-03   |
 | Diane   | Executive Assistant     | `Diane/`    | Executive Assistant Role                   | yes (empty body) | none                                                 | 2026-07-03   |
 | Erik    | VS Codium Specialist    | `Erik/`     | VS Codium Specialist Role                  | yes              | none                                                 | 2026-07-06   |
+| Mira    | Thinking Partner         | `Mira/`     | Thinking Partner Role                      | yes              | none                                                 | 2026-07-21   |
 
 **Notes:**
 

@@ -60,7 +60,7 @@ Joachim.
 | Path | Role |
 |---|---|
 | `~/.pi/agent/personas/` | The persona directory root. Each subdirectory is a persona. |
-| `~/.pi/agent/personas/inventory.md` | The canonical persona inventory (Name, Title, Directory, H1, etc.). I create and maintain it. Loader-agnostic; referenced from `Ada/persona.md` and from `common.md` so the agent picks it up. |
+| `~/.pi/agent/personas/inventory.md` | The canonical persona inventory (Name, Title, Directory, H1, etc.). I create and maintain it. Loader-agnostic; referenced from `Ada/persona.md` so the agent picks it up. |
 | `~/.pi/agent/personas/<name>/persona.md` | Role definition. I create new ones; I edit existing ones only on Joachim's request. |
 | `~/.pi/agent/personas/<name>/memory.md` | Per-persona memory. Same ownership as `persona.md`. |
 | `~/.pi/agent/personas/common.md` | Shared persona contract. I edit this only on Joachim's request; changes are contract amendments. |
@@ -100,16 +100,6 @@ table itself is **not** duplicated here (per `common.md` §
 `inventory.md` on every add / modify / remove; update this
 reference if `inventory.md` ever moves.
 
-**Removed (history):**
-
-- **Pi** — 2026-07-03 — removed by Joachim's request. Persona
-  covered the pi coding-agent harness (extension host API,
-  system-prompt composition, jiti behaviour, project-trust
-  gating). Cross-references in other personas' memory files
-  that routed to "the Pi persona" are now dangling; flagged
-  in `## Known Issues` and at the time of removal. The
-  historical row also lives in `inventory.md` → *Removed*.
-
 ## Known Issues
 
 (Active. Move to `## Change Log` with a "closes: <issue>" tag
@@ -130,40 +120,20 @@ shouldn't have to rediscover.)
   persona directory. Ada does not unilaterally modify other
   personas' content; this is Joachim's call.
 
-- **Address rule is implicit, not contractually pinned.**
-  `common.md` does not explicitly state which name a persona
-  should use when addressing the user. The inventory
-  consistently uses `Joachim` (with Diane as the lone
-  deviation). A one-line addition to `common.md` could make
-  this a hard rule, but it is a contract amendment and
-  requires Joachim's sign-off.
-
 ## Change Log
 
 Append one line per change (add / modify / remove / contract
 amendment / loader-routed feature request), newest first:
 
-```
-- YYYY-MM-DD — <one-line summary>.
-```
-
-- 2026-07-06 — Created Stella persona (Purchase Researcher). Scope: research prices, supplier reputation, delivery, product features for any purchase (first two: a computer and a second-hand car); flag Swedish moms (VAT) for both personal and Sincera Holding AB buyers. Propose-only — she never places orders; Joachim clicks buy. Moms booking routed to Joachim directly (Linnea left out of the loop for now; her persona is v1-scoped to inbox renaming and doesn't yet do moms redovisning — flag this if her scope later expands and Stella's hand-off should be updated). No loader change. Wrote `Stella/persona.md` + starter `Stella/memory.md`; added inventory row.
-- 2026-07-06 — Created Erik persona (VS Codium Specialist). Scope: VS Codium config, Open VSX extensions, Codium-vs-VS-Code differences, remote dev. Extension development explicitly deferred for now. No loader change. Wrote `Erik/persona.md` + starter `Erik/memory.md`; added inventory row.
-- 2026-07-06 — Extended Stella's `## Moms` section with an Intra-EU block (reverse charge / omvänd skattskyldighet) on Joachim's request. He buys from suppliers in Spain and Germany; the research now must cover whether moms is avdragsgill and how. Added: verify supplier VAT number via VIES, confirm Sincera's VAT number goes on the invoice before ordering, state avdragsgill status (full if wholly for taxable business; partial/non if mixed-use), distinguish business (reverse charge) from personal B2C (destination-rate moms, no avdrag). Moved reverse charge out of the non-standard list (intra-EU is now a standard case); domestic reverse charge and other cases remain non-standard. Mirrored a quick-reference note in `Stella/memory.md`. Booking still Joachim's / his bookkeeper's; Stella flags only.
-
-- 2026-07-03 — Tightened `common.md` to pure, succinct instructions on Joachim's request. Discovered that the persona-loader at `persona-loader.ts:60-67` already injects a "Memory Guidelines" footer into every persona's prompt with the three memory tiers and the "no achievement log" rule, so the entire `## Memory System (per-persona)` and `## Project Memory` sections of `common.md` were duplicate of loader-injected content (the "no achievement log" rule was repeated four times). Rewrote `common.md` from 87 → 16 lines: two sections (`## Information Organization` + `## Behavior`), 8 directive bullets, one meta-note pointing the maintainer at the loader's injection. Cross-references updated: `Ada/persona.md` line 26 (Memory tier model now points at `persona-loader.ts:60-67`), `Ada/persona.md` lines 122–127 (`### common.md` convention section updated to new 2-section structure), `Ada/persona.md` line 160 (cross-reference example changed from `common.md § Memory System` to `common.md § Information Organization`). `inventory.md:66` reference to `common.md § *Information Organization*` still works.
-- 2026-07-03 — Moved the `## Persona Metadata` section out of `common.md` on Joachim's request. It was documentation about the persona system (loader-agnostic Name/Title fields, inventory pointer), not behavioural guidance — `common.md` is loaded with every persona and should hold only instructions. Content moved to a new sub-section `### The Name and Title fields` under `## Structural Conventions` in `Ada/persona.md`. Cross-references updated: the inline bullet at `Ada/persona.md` line 80 (in the `### personas/<name>/persona.md` numbered list) and the intro paragraph in `inventory.md`. Historical change log entries that referenced the old `common.md § *Persona Metadata*` location are kept verbatim — they describe state at the time.
-- 2026-07-03 — Renamed the `sysadmin/` directory to `Alan/` and codified the rule "directory name == `## Name:` field" in `common.md` § *Persona Metadata* + Ada's Structural Conventions on Joachim's request. The previous `sysadmin/` → Alan discrepancy is resolved; the new rule has no exceptions. Updated `inventory.md` (Directory column + intro note), `persona-loader/README.md` (removed the exception sentence), `Maya/memory.md` (resolved the prior "👤 sysadmin — Sysadmin" surface item), and the prose references in `Idun/persona.md` + `Idun/memory.md` (8 occurrences of "sysadmin" → "Alan"). No loader source change — the loader uses `listPersonas()` dynamically and picks up the rename automatically.
-- 2026-07-03 — Fixed Diane's address from `Carl` to `Joachim` on Joachim's request. Removed the corresponding `## Known Issues` entry. (Resolved 2026-07-03 issue #2.)
-- 2026-07-03 — Fixed Sue's H1: removed redundant `(Sue)`. The `## Name:` field added in the prior session is the canonical name anchor; the H1 now reads `# Senior Python Developer Role`.
-- 2026-07-03 — Created `~/.pi/agent/personas/inventory.md` as the canonical persona inventory (Name, Title, Directory, H1, etc.) on Joachim's request. Removed the duplicate inventory table from this file (per *Reference Over Copy*); kept a one-line reference. Added the file to Ada's "Files I own" table. Referenced `inventory.md` from `common.md` § *Persona Metadata*.
-- 2026-07-03 — Amended `common.md` to add `## Persona Metadata` section (Name + Title convention) and updated Ada's `Structural Conventions` to require the two new H2 fields. Joachim-approved. Both fields are loader-agnostic; the loader continues to use the directory name as the runtime identifier. The `sysadmin/` → Alan discrepancy is the one documented exception to the directory-name = identity-name default.
-- 2026-07-03 — Added `## Name` + `## Title` fields to every persona's `persona.md` on Joachim's request. One edit per persona, 12 personas, minimal diff (inserted between H1 and identity paragraph). Titles assigned: Ada→Persona Architect, Claudia→System Architect, Diane→Executive Assistant, Hazel→Smart Home, Idun→LLM Steward, Linnea→Bookkeeper, Marcus→Implementation Engineer, Maya→Loader Engineer, Sue→Python Developer, sysadmin→Sysadmin, Theo→Org Designer, Vera→Test Engineer. The Name field uses the persona's identity name (e.g. `Alan` for the `sysadmin` directory), not the directory name — flagged in `## Known Issues` for the common.md implication. No `common.md` changes yet.
-- 2026-07-03 — Created Ada persona (this file). Deleted Pi
-  persona directory on Joachim's request; flagged the
-  resulting dangling "Pi persona" cross-references in Maya's
-  `persona.md` + `memory.md` (see `## Known Issues`). Wrote
-  the Ada `persona.md` first (read every existing persona
-  and the loader source); then populated this memory file
-  with the initial inventory and the change-log entry. No
-  `common.md` changes. No loader changes.
+- 2026-07-21 — Created Mira (Thinking Partner), read-only by default with explicit memory-maintenance exception; added inventory row.
+- 2026-07-06 — Extended Stella's purchase-research scope for intra-EU VAT and reverse-charge cases; added memory quick reference.
+- 2026-07-06 — Created Erik (VS Codium Specialist); added inventory row.
+- 2026-07-06 — Created Stella (Purchase Researcher); added inventory row.
+- 2026-07-03 — Tightened `common.md` to its current two-section behavioural contract, relying on loader-injected memory guidance.
+- 2026-07-03 — Moved persona metadata guidance from `common.md` into Ada's structural conventions.
+- 2026-07-03 — Renamed `sysadmin/` to `Alan/` and aligned directory/name conventions across persona references.
+- 2026-07-03 — Corrected Diane's address to Joachim.
+- 2026-07-03 — Simplified Sue's H1 after adding canonical metadata fields.
+- 2026-07-03 — Created `inventory.md` as the canonical persona inventory and removed its duplicate from this memory.
+- 2026-07-03 — Added the `## Name` and `## Title` metadata fields to existing personas.
+- 2026-07-03 — Created Ada and removed Pi at Joachim's request; retained the dangling Pi cross-reference as an active known issue.
