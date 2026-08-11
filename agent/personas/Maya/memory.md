@@ -13,7 +13,7 @@ Read at the start of each session.
 
 | Path | Role |
 |---|---|
-| `~/.pi/agent/extensions/persona-loader.ts` | Source (~120 lines, TS, jiti-loaded). |
+| `~/.pi/agent/extensions/persona-loader.ts` | Source (312 lines, TS, jiti-loaded). |
 | `~/.pi/agent/extensions/persona-loader.md` | Implementation description. Authoritative "why" surface. Update on every non-trivial source change. |
 
 ### Files I read but do not own
@@ -29,12 +29,13 @@ Read at the start of each session.
 ### The loader's contract (in one paragraph)
 
 On `/become-persona <name>`, read `common.md` + `<name>/persona.md`
-+ `<name>/memory.md` in that order, concatenate, append a Memory
-Guidelines footer pointing the agent at `<name>/memory.md`, stash
-in module-level state. On every `before_agent_start`, append the
-staged payload to `event.systemPrompt`. Stash survives the session;
-clears on `/reload` (known issue). Missing `persona.md` is a hard
-error; missing `common.md` / `memory.md` is silently skipped.
++ `<name>/memory.md` plus the per-project `<cwd>/.personas/<name>/*.md`
+tier, concatenate the sources in order, append a Memory Guidelines footer
+pointing the agent at its memory tiers, and stash the result in
+module-level state. On every `before_agent_start`, append the staged payload
+to `event.systemPrompt`. Stash survives the session; clears on `/reload`
+(known issue). Missing `persona.md` is a hard error; missing `common.md` /
+`memory.md` is silently skipped.
 
 ## Process
 
@@ -82,14 +83,11 @@ formal sign-off (per the Vera persona's loop). Don't claim
 
 - **Joachim** — owner. Reports bugs, approves scope changes,
   arbitrates when the loader's contract conflicts with a persona's
-  needs. Asks Joachim when the answer is "depends on what we
-  want".
-- **Pi** (Pi harness expert) — deep pi internals. Defer to Pi
-  for jiti behaviour, project-trust gating, and system-prompt
-  composition questions that go beyond what the pi docs say.
+  needs, and is the final route for pi host-internals questions
+  that remain unclear after consulting the bundled pi documentation.
 - **Vera** (verification engineer) — downstream verifier. Hand
-  every change to Vera with diff + smoke-test output. Vera's
-  sign-off is the source of truth for "verified".
+  every change to Vera with diff + smoke-test output. Vera's sign-off
+  is the source of truth for "verified".
 - **Claudia** (system design) — upstream of the personas. Not
   directly downstream of the loader, but a feature request from
   Claudia (e.g. "the loader should support stacking personas")
@@ -117,10 +115,10 @@ row to `## Change Log` with a "closes: <issue>" tag.)
   (per-pid `/tmp` file, environment hint, or accept the
   limitation).
 - **No filesystem caching.** Every `/become-persona` call
-  re-reads all three markdown files. For a handful of small files
-  this is negligible; for users with very large `memory.md` files
-  it would be worth measuring. Probably not worth fixing unless
-  a real user reports slowness.
+  re-reads all persona sources and the per-project `.md` files.
+  For a handful of small files this is negligible; for users with
+  very large memory files it would be worth measuring. Probably not
+  worth fixing unless a real user reports slowness.
 - **`console.*` writes are visible in agent output.** Unlike
   `ctx.ui.notify`, `console.warn`/`console.error` log lines
   surface in the same stream as agent replies. During heavy
@@ -148,32 +146,13 @@ row to `## Change Log` with a "closes: <issue>" tag.)
 
 ## Change Log
 
-Append one line per change (feature, bug fix, refactor, doc
-update), newest first:
+One line per meaningful loader change, newest first. Detailed rationale lives
+in `persona-loader.md`; git history owns the full change trail.
 
-```
-- YYYY-MM-DD — <one-line summary> — <commit hash if available>.
-```
-
-The first entry of a new session is "no changes since <date of
-last entry>" if nothing has been done. Don't pad the log with
-"reading the docs" entries; the log is for changes, not for
-sessions.
-
-(No entries yet — first change will be appended when the first
-feature or bug fix lands.)
-
-- 2026-07-04 — Doc-only cleanup of `persona-loader.md` § 3 and § 4. (a) § 3 Public API stated the default export registers "one command and one event hook" — stale from the 2026-07-03 autocomplete-provider change, contradicting § 1's "two pi lifecycle hooks". Fixed to "two event hooks". (b) § 4 Implementation walkthrough's step numbering had rotted: the sequence ran 1–9, 8b, 8c, 10, 11 because the `listPersonaCompletions` helper and the custom autocomplete provider were inserted as afterthoughts *after* what was then step 9. Renumbered all twelve bullets monotonically 1→13 (8b→10, 8c→11, old 10→12, old 11→13) and walked the five internal `(see step N)` / `(via …, step N)` cross-references forward to match. The off-by-one `(see step 7)` pointer in the old step 5 (which meant the old step 6, "empty string on missing persona.md") was fixed to `(see step 6)`. No § 1/§ 5/§ 10 references needed updating — they point at § 5-row-N and § 4 step-3/5, which don't move. No source change; pure doc. No smoke test needed (no code semantics touched). Flagged independently during the review (the § 3 drift) and folded in with Joachim's OK since both belong to the same pass.
-- 2026-07-04 — Dropped all four per-source provenance/section headers the loader injected between source files (`# Shared Persona Guidelines (common.md)`, `# Persona Profile (<name>)`, `# Persona Memory (memory.md)`, `# Project Memory (<filename>)`). The loader now concatenates `common.md`, `persona.md`, `memory.md`, and the per-project tier **verbatim** with no intervening loader headings; each source carries its own top-level heading (`persona.md` and `memory.md` do; `common.md` is intentionally headingless — per Joachim's call, accept the orphaned `## Information Organization` H2 rather than re-add an H1 in `common.md`, which is content outside the loader's scope). Empty per-project `.md` files now contribute nothing (previously they emitted a bare `# Project Memory (filename)` header with no body). Rationale (Joachim / Idun 2026-07-04): the loader should inject *pure instructions for the loaded persona*, not meta-commentary about where content came from — `# Shared Persona Guidelines (common.md)` informed the model "these apply to every persona", the same class of informing as the old `Applies to all personas` H1 Idun removed from `common.md`. Kept the three pure-instruction blocks: opening `# Active Persona:` identity assertion, `# Memory Guidelines` footer, closing `# Active Persona Confirmation`. Doc: `persona-loader.md` § 1 (new Scope bullet), § 4 step 3 (no-headers note), § 9 (banner example rewritten), § 8 step 7 (no-provenance-headers assertion added), new § 10 row 8; README `What it does` intro + item 4 + Per-project tier semantics updated. Source diff: ~6 lines net. Smoke-tested via Node: assembled Maya prompt has exactly 5 `#` headings in order (`# Active Persona: Maya` → `# Persona Loader Maintainer` → `# Maya — Memory` → `# Memory Guidelines` → `# Active Persona Confirmation`), zero provenance headers (anchored `^#` check), `common.md` renders starting at `## Information Organization` with no wrapper. Full TUI verification deferred to Vera.
-- 2026-07-02 — Added per-project persona memory tier. Loader now auto-creates `<cwd>/.personas/<active persona>/` with an empty `project.md` on first adopt in a given cwd, reads every `.md` file in that directory (sorted) under `# Project Memory (filename)` banners, and surfaces a one-time `ctx.ui.notify` toast on the first create. `loadPersonaContent` return type changed from `string` to `{ content, created }`; `loadProjectPersonaMemory` is the new helper. `personas/common.md` flipped to the three-tier model (memory.md cross-project, project.md per-project, AGENT.md shared spec — no achievement log); `personas/Vera/memory.md` touched up to remove AGENT.md-achievement-log references. `persona-loader.md` § 11 got a single-line `(after this change)` pointer to `<cwd>/.personas/<active persona>/`. **Self-correction 2026-07-03**: the prior entry claimed smoke-test steps 9–14 were added to `.md` § 8 — they weren't. The only `.md` change on 2026-07-02 was the § 11 pointer. The § 8 smoke test wasn't expanded at all (Vera's re-verification confirmed this via `git diff`: `.md` was +7/-2 vs HEAD at the time of her initial report, all attributable to the § 11 addition).
-- 2026-07-03 — Closed documentation drift from the 2026-07-02 commit. Updated README (`What it does`, `Personas directory layout`, `Commands`, `Persona file semantics → persona.md`, `Persona file semantics → memory.md`, new `Persona file semantics → Per-project tier`, `Trust and security`, `Customization points`) and `persona-loader.md` (§ 1 Scope, § 4 step 2 try-block rule broadened, § 4 step 3 order string now five-stage, new § 4 step 4 walkthrough of `loadProjectPersonaMemory`, renumber 5→8, § 5 two new error-handling rows, § 7 cwd-write row, § 9 auto-create convention row, § 11 drop "(after this change)" qualifier) to match the shipped per-project tier. Closes Vera's findings D-1, D-2/D-3, D-4, D-6, D-7, D-8 and the CP-27 caveat. No source changes; source remains conformant to intent. Routed back to Vera for re-verification cycle #3.
-- 2026-07-03 — **Fixed bug** where Tab on `/become-persona ` (slash command + space, no argument) showed no autocomplete dropdown. Root cause: pi's built-in `CombinedAutocompleteProvider.shouldTriggerFileCompletion` (in `@earendil-works/pi-tui`) checks `textBeforeCursor.trim().includes(" ")` — the `.trim()` strips the trailing space after a slash command, so `/become-persona ` looks like `/become-persona` (no space) and the built-in returns `false`. The editor's `requestAutocomplete` then returns early without firing the autocomplete request, and Tab on `/become-persona ` shows nothing. The natural-trigger path (typing a letter) worked because `requestAutocomplete` only consults `shouldTriggerFileCompletion` when `options.force === true`; natural triggers pass `force=false`. The backspace path worked because `updateAutocomplete` calls `requestAutocomplete` with `force=autocompleteState === "force"` — if the prior state was `"regular"` (from natural triggers), `force=false` skips the check. Fix: override `shouldTriggerFileCompletion` in the custom provider wrapper to return `true` for the `/become-persona<ws>` pattern (matched against the un-trimmed text via `/^\/become-persona[ \t]/`); delegate to the built-in otherwise. Scoped to our command so other slash commands continue to fall through to the built-in's (currently buggy) logic without changing behaviour. Source diff: ~6 lines net (the wrapper's shouldTriggerFileCompletion). Doc updates: `persona-loader.md` § 4 step 7c amended with a `shouldTriggerFileCompletion` override paragraph explaining the trim() bug, the workaround, and why the natural-trigger and backspace paths were unaffected. Smoke-tested via Node: 7 cases (the bug case + 6 surrounding contexts) all behave correctly with the fix; no regression for other slash commands.
-- 2026-07-03 — Tab on `/become-persona ` (slash command + space, no argument) now fires the persona autocomplete dropdown immediately. The previous behaviour routed to pi's file completion and only showed the dropdown after the user typed a letter (natural trigger). Fix: registered a custom autocomplete provider via `ctx.ui.addAutocompleteProvider` on `session_start` that detects `/become-persona<ws><arg?>` with a single anchored regex and returns `listPersonaCompletions(argPrefix)` items before the built-in provider sees the request. Both paths (Tab and natural trigger) now render the same `name — title` shape via a shared `listPersonaCompletions` helper; each item carries `value`/`label` = the directory name and `description` = the `## Title:` line read by `loadPersonaTitle`. Source diff: ~60 lines (helper + session_start handler + import). Doc updates: `persona-loader.md` § 4 step 7 amended (description field) + new steps 7b/7c (helper + custom provider) + § 8 step 5 (Tab-immediate assertion) and step 6 (Tab-with-arg assertion) added, with subsequent steps renumbered. README: argument-completions bullet expanded; Source-line index updated. Smoke-tested the regex + helper via Node against all 12 personas + 8 edge cases (empty arg, partial arg, tab separator, `/become-persona` without space, other commands, extra trailing text) — all matched the expected behaviour. Full TUI verification (reload + Tab on `/become-persona `) deferred to Joachim — surface in the hand-off.
-- 2026-07-03 — TUI footer status row now shows the persona's `## Title:` after the name (`👤 <name> — <title>`, falling back to `👤 <name>` when the line is missing or unreadable). Added a small `loadPersonaTitle(personaName)` helper that reads `<name>/persona.md` once and runs an anchored regex (`/^## Title:\s*(.+?)\s*$/m`) to extract the title; the helper deliberately does *not* fold into `loadPersonaContent` (Title is metadata for the footer, not prompt content). Source diff: ~22 lines (helper + handler call swap). Doc updates: `persona-loader.md` § 1 Scope bullet, § 4 step 9 amended + new step 10 (helper walkthrough), § 8 step 4 amended to assert the title appears, new § 8 step 10 (Title-fallback smoke test). README: `What it does` + `Behavior on success` + `TUI footer status row` code example + the post-bullet sentence. Smoke-tested via Node extraction of all 12 titles + the no-title + missing-file fallbacks (regex matches every persona file, returns `""` for both fallback paths). Full TUI verification (reload + visual footer check) deferred to Joachim — surface in the hand-off. **Resolved 2026-07-03 (later in the same session):** the `sysadmin/` directory was renamed to `Alan/`, and the new `common.md` rule "directory name == `## Name:` field" prevents the `👤 sysadmin — Sysadmin` redundancy from recurring. Status row now reads `👤 Alan — Sysadmin` for that persona.
-- 2026-07-03 — Added TUI footer status row showing the active persona (`👤 <Name>` via `ctx.ui.setStatus("persona", ...)`). Source: 8-line addition in the `/become-persona` handler — `if (ctx.hasUI) ctx.ui.setStatus("persona", ...)`. Doc: README `What it does`, `Behavior on success`, new `TUI footer status row` Hooks subsection, `Limitations` cross-reload row, and `Source-line index` rewrite to retire the brittle line-number pattern (option (b) from open work D-9/D-10); `persona-loader.md` § 1 Scope, new § 4 step 9 status-row walkthrough, new § 5 row, new § 9 row, § 10 rephrased "State does not survive reload" to record the persistence-rejection rationale (multi-terminal clobber), § 8 smoke-test step 4 + new step 9. **Iteration note**: first pass sketched persistence via `~/.pi/agent/.persona-state.json` + `session_start` handler to give the status row reload-survival; Joachim pivoted mid-change because he keeps multiple Pi sessions open in different terminals and a single global slot would clobber across them. Final design: status row only, no persistence, lifetime tied to extension instance. Closes the `Reload-persistence` line of `Open Work` (rejected, with rationale recorded in § 10). Closes D-9/D-10 (source-line index rot — retired the brittle pattern).
-- 2026-07-03 — **Bug investigation** + **fix** for Joachim's report that `/become-persona Marcus` updated the status row to Marcus but the next agent turn (`Who are you?`) still answered "Vera" with reasoning "per my identity as Vera. Same as last time they asked." Repro via jiti-loaded `loadPersonaContent("Marcus")` + `before_agent_start` mock: the staged system prompt is **correct** (`# Persona Profile (Marcus)`, `Your name is Marcus`, `# Persona Profile (Marcus)`, **no** `Your name is Vera`). Diagnosed as model-side conversation-history pattern-match in long sessions, not a loader bug — the model sees the conversation thread including prior "I am Vera" answers to "Who are you?" and pattern-matches those over the freshly-staged identity. **First-pass fix (incomplete):** prepend a `# Active Persona: <Name>` banner at the very top of `extraPrompt` (before any disk read or other content) with an explicit `**You are <Name>** ... superseding any prior persona identity established through earlier conversation in this session` line. Source diff: ~10 lines net (5-line block comment + 2 `extraPrompt +=` lines at the top of `loadPersonaContent`, before the `try`). Doc updates: `persona-loader.md` § 1 Scope new bullet, § 4 step 3 order string now identity-assertion-first, new § 4 step 5 walkthrough of the prepend, renumber 5→11 with cross-references updated, § 5 two new error-handling rows (model-side residual risk documented), § 8 step 7 amended to assert the banner is the first persona-flavored content + new § 8 step 13 ("Identity assertion after a switch" smoke test), § 10 new row 6 documenting the residual conversation-history pattern-match issue plus the user-facing workarounds (`/new`, `/compact`, `/reload`). **Strengthened (same day):** Joachim reported the prior fix only addressed the identity leak ("Who are you?") but the model also kept the *behaviour frame* of the prior persona and refused out-of-character tasks after a switch (Vera refusing tasks that are Claudia's; Vera still test-engineering under Marcus). Added a closing `# Active Persona Confirmation` block at the very end of `extraPrompt` (after the Memory Guidelines footer) with a `**You are <Name>** ... role, behaviour, and accepted task scope are defined by your current persona ... Respond as <Name>` line. The opening banner focuses on the *name*; the closing confirmation focuses on the *behaviour frame*. Recent system-prompt content carries higher attention weight than mid-prompt content, so the closing reminder lands harder against conversation-history inertia than the opening one. Source diff: ~12 lines net (5-line block comment + 2 `extraPrompt +=` lines at the end of `loadPersonaContent`, after the Memory Guidelines footer). Doc updates: `persona-loader.md` § 1 Scope bullet rewritten to cover both endpoints + the name-vs-behaviour-frame split, § 4 step 3 order string extended with the closing confirmation, § 4 step 5 walkthrough extended to describe both the opening and closing reminders and the behaviour-frame half of the pattern-match, § 8 step 7 amended to assert the closing confirmation is the last persona-flavored content + new § 8 step 14 ("Behaviour-frame assertion after a switch" smoke test). Smoke-tested via Node against Marcus: the staged prompt now contains `# Active Persona Confirmation` at position 16428 (after the Memory Guidelines footer at 15707), confirming the closing reminder reaches the end of the persona append. Order pass: identity-assertion → common → persona → memory → project → Memory Guidelines → confirmation, all 7 headings in order. Full TUI verification (switch persona + send out-of-character task + confirm agent accepts it as the new persona) deferred to Joachim — surface in hand-off as: "if the model still refuses out-of-character tasks on `/become-persona` switches after this lands, it's the § 10 row 6 residual (closing reminder may not fully overcome conversation-history pattern-match in adversarial cases); user-facing workaround is `/new`, `/compact`, or `/reload`."
-- 2026-07-03 — Joachim's blur observation (cross-cutting, recorded for posterity). His one-line takeaway: "the system prompt may have high priority but it does not seem absolute if you can blur it with a lot of context." This is an *orthogonal* failure mode to the conversation-history pattern-match addressed by the strengthened fix above: token-volume dilution rather than per-turn pattern-match. The closing reminder partially offsets blur (recent tokens have higher attention weight), but full immunity requires `/compact` or `/new` once the session grows past the model's effective attention span. Recorded as `persona-loader.md` § 10 row 7 ("System-prompt authority is high-priority, not absolute — it blurs with context length"). Maya-side reference for future extension work: any extension that mutates the system prompt should treat it as high-priority-but-finite, not absolute — long sessions dilute attention regardless of prompt content; design accordingly (place your most important assertion at the *end* of the prompt, not just the start; resist the temptation to think "the model will pick up the system-prompt directive regardless").
-- 2026-07-03 — Joachim's identity-probe corollary. Asking the model "Who are you?" specifically produces a self-reinforcing 'I am X' token in the conversation history — the model is being asked to commit, and the commitment is the strongest single persona-reinforcing token in the conversation. Behavioural probes ("implement function f") reinforce on the behaviour-frame axis; identity probes reinforce on both axes (behaviour via the act of answering + identity via the explicit claim). Concrete corollary: every identity probe makes the next persona switch harder; switching is therefore easier mid-conversation if you keep persona-neutral verification behavioural (no identity claim) and reach for `/compact` or `/new` when the session is already identity-heavy. Maya-side reference: any future extension that *triggers* identity probes (a /whoami command, a persona-status tool, an audit mode that asks the agent "who are you supposed to be right now") should either (a) stage the probe in a hidden context message that does not flow into the conversational history, or (b) document the inertia cost to the user. Not recorded in `persona-loader.md` yet — pending Joachim's call on whether `personas/common.md` should carry the cross-persona guideline.
+- 2026-07-21 — Cleaned stale references left by the retired harness persona; updated loader summaries and ownership routing.
+- 2026-07-04 — Updated loader documentation for the current source-concatenation and autocomplete behavior.
+- 2026-07-03 — Updated documentation for the per-project tier, autocomplete, footer status, and identity/behavior assertions.
+- 2026-07-02 — Added the per-project persona memory tier and its loader initialization path.
 
 
 ## Open Work
@@ -182,28 +161,18 @@ feature or bug fix lands.)
 requests. Move to `## Change Log` when work begins; close with a
 "closes: <issue>" tag.)
 
-- **Status command** — see `## Known Issues` row 6 (was row 6 in
-  the prior session; renumber if needed). Depends on a way to query
-  "what was the last `/become-persona`", which now requires either a
-  module-level inspection helper or wiring back to the (rejected)
-  persistence file. Joachim keeps multiple Pi sessions open, so any
-  query mechanism must be per-session, not file-backed.
-- **Warn when `common.md` is missing** — see `## Known Issues`
-  row 4. Small change; do this first as a warm-up.
-- **Switch diagnostics to `ctx.ui.notify` where possible** —
-  see `## Known Issues` row 3. Touches the outer-`try` failure
-  path which doesn't have a UI context; needs a design decision
-  before implementing.
-- **Per-project memory: cleanup `Marcus/memory.md` line 182** —
-  Marcus's "brief vs. reality" deviation rule still says "the
-  AGENT.md achievement log entry references it" as the trail
-  mechanism. The AGENT.md achievement log no longer exists
-  (`common.md` changed 2026-07-02 to drop it; git owns history).
-  Marcus needs a follow-up to repoint the deviation trail at
-  the per-module `.md` itself (which already documents the
-  deviation per his cardinal rule) or some other post-log
-  mechanism. Design call needed before touching; bundle in a
-  separate small commit.
+- **Status command** — the user has no way to query the active persona at a glance; a future read-only command would need a module-level inspection helper because persistence is rejected for multi-terminal use.
+- **Warn when `common.md` is missing** — see the corresponding
+  known-issue entry. Small change; do this first as a warm-up.
+- **Switch diagnostics to `ctx.ui.notify` where possible** — see
+  the corresponding known-issue entry. Touches the outer-`try`
+  failure path, which doesn't have a UI context; needs a design
+  decision before implementing.
+- **Per-project memory:** Marcus's deviation rule still refers to
+  an `AGENT.md` achievement-log entry as the trail mechanism. The
+  achievement log no longer exists; this needs a separate follow-up
+  with Marcus to repoint the trail at the authoritative module
+  documentation.
 - **Residual drift from cycle #3 verification (D-11)**
   — README + `persona-loader.md` "Files" tables don't catalog
   `<cwd>/.personas/<persona>/project.md`, the file the loader

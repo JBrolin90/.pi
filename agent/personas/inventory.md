@@ -20,7 +20,7 @@ records the loader's runtime identifier, which is the same value.
 | Ada     | Persona Architect       | `Ada/`      | Persona Specialist Role                    | yes              | none                                                 | 2026-07-03   |
 | Alan    | Sysadmin                | `Alan/`     | System Administrator Role                  | yes              | `homelab_architecture.md`, `SinceraHemserviceAB.txt` | 2026-07-03   |
 | Theo    | Org Designer            | `Theo/`     | Team & Organization Builder                | yes              | none                                                 | 2026-07-03   |
-| Maya    | Loader Engineer         | `Maya/`     | Persona Loader Maintainer                  | yes              | none                                                 | 2026-07-03   |
+| Maya    | Loader Engineer         | `Maya/`     | Persona Loader Maintainer                  | yes              | none                                                 | 2026-07-21   |
 | Sue     | Python Developer        | `Sue/`      | Senior Python Developer Role               | yes              | none                                                 | 2026-07-03   |
 | Stella  | Purchase Researcher     | `Stella/`   | Purchase Research Specialist               | yes              | none                                                 | 2026-07-06   |
 | Hazel   | Smart Home              | `Hazel/`    | Home Assistant Expert Role                 | yes              | none                                                 | 2026-07-03   |
@@ -32,6 +32,7 @@ records the loader's runtime identifier, which is the same value.
 | Diane   | Executive Assistant     | `Diane/`    | Executive Assistant Role                   | yes (empty body) | none                                                 | 2026-07-03   |
 | Erik    | VS Codium Specialist    | `Erik/`     | VS Codium Specialist Role                  | yes              | none                                                 | 2026-07-06   |
 | Mira    | Thinking Partner         | `Mira/`     | Thinking Partner Role                      | yes              | none                                                 | 2026-07-21   |
+| Saga    | Knowledge Worker        | `Saga/`     | Knowledge Worker Role                     | yes              | `How to Build Karpathy's LLM Wiki_ The Complete Guide to AI-Maintained Knowledge Bases.md` | 2026-07-22   |
 
 **Notes:**
 

@@ -100,31 +100,18 @@ table itself is **not** duplicated here (per `common.md` §
 `inventory.md` on every add / modify / remove; update this
 reference if `inventory.md` ever moves.
 
-## Known Issues
-
-(Active. Move to `## Change Log` with a "closes: <issue>" tag
-when work begins. Bug-class entries that the next session
-shouldn't have to rediscover.)
-
-- **Dangling "Pi persona" cross-references after 2026-07-03
-  removal.** Maya's `persona.md` defers to the Pi persona for
-  jiti / project-trust / system-prompt-composition questions;
-  Maya's `memory.md` → `## People` lists Pi as a deep
-  pi-internals resource. After the 2026-07-03 deletion of the
-  Pi persona directory, those cross-references are dangling
-  (they name a persona that no longer exists). **Surface this
-  to Joachim the next time he asks about Maya's loader or
-  about Pi-internals questions.** Resolution is one of:
-  (a) re-route the dangling references to point at pi's
-  bundled `docs/` + Joachim directly, (b) restore the Pi
-  persona directory. Ada does not unilaterally modify other
-  personas' content; this is Joachim's call.
-
 ## Change Log
 
 Append one line per change (add / modify / remove / contract
 amendment / loader-routed feature request), newest first:
 
+- 2026-07-22 — Created **Saga** (Knowledge Worker) per Joachim's request. Generic wiki pattern (page types, naming, frontmatter, three operations — ingest / query / lint — Obsidian compatibility) lives in `Saga/persona.md`; project topic and conventions live in `<cwd>/wiki/SCHEMA.md` (created by Saga on first activation from a default template). cwd (excluding `.gitignore` and `wiki/`) IS the raw layer — no `raw/` subfolder. All mutations on Joachim's command only. The "How to Build Karpathy's LLM Wiki" article in `<cwd>` is the reference for the pattern; Saga treats it as raw if asked to ingest, but the generic pattern in persona.md is the source of truth, not the article. Inventory row added.
+- 2026-07-22 — Moved the "How to Build Karpathy's LLM Wiki" article from the cwd to `~/.pi/agent/personas/Saga/` as a **reference document** (on-demand via `read` tool, not auto-loaded by the persona-loader). Filename preserved verbatim (web-clipper output, spaces + apostrophe). New convention introduced locally for Saga: persona-private `*.md` files alongside `persona.md`/`memory.md` that the persona reads when relevant, without bloating every prompt. Documented in `Saga/memory.md` § *Reference documents* + `Saga/persona.md` § *Hard-Won Facts*; surfaced in `inventory.md` Saga row's *Extra files* column. Convention is Saga-local; not yet promoted to `Ada/persona.md` structural conventions or `common.md` — awaiting Joachim's call on whether to formalise system-wide.
+- 2026-07-22 — Saga: replaced all hardcoded Swedish utterances/tokens in `Saga/persona.md` (ingest & lint confirmation tokens `ja/yes/go/kör` → `yes/go/ok`; halt `nej/vänta/no` → `no/wait/stop`; query flag and the two query-output prompts → English) and in `Saga/memory.md` § *Confirmation protocol* (`ja / nej / visa igen`, `ja / yes / kör / go` → English). Root cause: the Language rule (already present, says default to English) only governsSaga's *reactive* replies; the *operational procedures* still told her to emit fixed Swedish strings regardless. Joachim reported Saga still speaking partial Swedish. Inventory row for Saga already present (added with the persona on 2026-07-22); no inventory change needed.
+- 2026-07-22 — Added `## Persona Architecture` rule in `common.md`: personas must not edit their own `persona.md`; role-change observations go into their `memory.md` (e.g. a `## Role Notes` / `## Suggested Role Changes` section) for Ada + Joachim to review and promote into `persona.md` on request. Promotion is Ada's edit. No existing persona touched yet — sweep deferred to per-persona requests from Joachim.
+- 2026-07-22 — Added inter-persona messaging: new `persona-mailbox` skill (`~/.pi/agent/skills/persona-mailbox/SKILL.md`) for send / read-first-unread / delete mechanics, plus a `## Persona Messaging` contract section in `common.md` (inbox at `~/.pi/agent/personas/<name>/inbox.md`; check at session start; physical delete of read+acted-on messages; read-but-unactioned is a *held* item). Researched pi.dev marketplace — `pi-messenger` is the relevant published package but competes with the one-active-persona loader model; Joachim chose the in-house convention+skill route. No loader change needed (inbox.md is an other-md file, not auto-loaded — reached only via the skill, by design). No inventory change.
+- 2026-07-21 — Added cross-cutting `## Memory Continuity` section to `common.md` (state between sessions lives in memory files, not session transcript; "held" is a real state; surface drift). Removed the now-redundant `## Memory and Continuity` section from `Mira/persona.md`; moved the operational practice into `Mira/memory.md` § *Memory discipline*. Mira's inventory row moved forward. Other personas left untouched — await Joachim's per-persona sweep.
+- 2026-07-21 — Removed stale Pi-persona references from Maya's persona files, corrected Maya's ownership routing and loader-memory summary, and closed the corresponding known issue.
 - 2026-07-21 — Created Mira (Thinking Partner), read-only by default with explicit memory-maintenance exception; added inventory row.
 - 2026-07-06 — Extended Stella's purchase-research scope for intra-EU VAT and reverse-charge cases; added memory quick reference.
 - 2026-07-06 — Created Erik (VS Codium Specialist); added inventory row.
